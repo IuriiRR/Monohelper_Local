@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+*.pyc
+
+# Secrets — never commit
+secrets/*.json
+secrets/*.env
+secrets/*.db
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Env
+.env
+!.env.example

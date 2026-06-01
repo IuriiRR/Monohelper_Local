@@ -1,0 +1,27 @@
+[Unit]
+Description=Monohelper local admin server (FastAPI/uvicorn on port 8088)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User/Group and paths if your deploy user or directory differs.
+User=ironcow
+Group=ironcow
+WorkingDirectory=/home/ironcow/Projects/Monohelper_Local
+EnvironmentFile=/etc/cloudapi/local_server.env
+Environment=PYTHONPATH=/home/ironcow/Projects/Monohelper_Local/src
+ExecStart=/home/ironcow/Projects/Monohelper_Local/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8088
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

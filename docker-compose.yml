@@ -1,0 +1,27 @@
+x-service-base: &service_base
+  build:
+    context: .
+    dockerfile: Dockerfile.services
+  env_file:
+    - .env
+  volumes:
+    - ./src:/workspace/src:ro
+    - ./secrets:/etc/cloudapi:ro
+  restart: unless-stopped
+
+services:
+
+  fastapi_app:
+    <<: *service_base
+    ports:
+      - "127.0.0.1:8088:8088"
+    environment:
+      PYTHONPATH: /workspace/src
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host", "0.0.0.0",
+        "--port", "8088",
+        "--reload"
+      ]

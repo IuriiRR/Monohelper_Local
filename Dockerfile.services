@@ -1,0 +1,11 @@
+FROM python:3.11-slim
+
+WORKDIR /workspace
+
+COPY pyproject.toml /workspace/pyproject.toml
+COPY src /workspace/src
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -e /workspace
+
+ENV PYTHONPATH=/workspace/src

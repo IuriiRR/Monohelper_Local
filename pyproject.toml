@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project]
+name = "monohelper-local"
+version = "0.1.0"
+description = "Raspberry Pi local FastAPI server for Monohelper"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.111.0",
+  "loguru==0.7.2",
+  "pydantic==2.9.2",
+  "python-dotenv==1.0.1",
+  "requests==2.31.0",
+  "sqladmin>=0.17.0",
+  "sqlmodel>=0.0.18",
+  "uvicorn>=0.30.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.3.2",
+  "httpx>=0.23.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src",
+  ".",
+]
