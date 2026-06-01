@@ -23,13 +23,9 @@ def test_list_accounts(client: TestClient):
     assert response.status_code == 200
     assert response.json() == {"accounts": []}
 
-def test_sync_accounts(client: TestClient, monkeypatch):
-    mock_result = {"status": "success", "processed_users": 0, "total_accounts_synced": 0, "errors": []}
-    monkeypatch.setattr("routers.sync.sync_accounts", lambda session: mock_result)
+def test_sync_accounts_enqueues(client: TestClient):
     response = client.post("/sync/accounts")
-    assert response.status_code == 200
+    assert response.status_code == 202
     body = response.json()
-    assert body["status"] == "success"
-    assert body["processed_users"] == 0
-    assert body["total_accounts_synced"] == 0
-    assert body["errors"] == []
+    assert body["status"] == "queued"
+    assert isinstance(body["task_id"], int)

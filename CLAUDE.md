@@ -9,8 +9,15 @@ It syncs accounts and transactions directly from Monobank into a local SQLite da
 
 ## Structure
 
-- `src/local_server/` — FastAPI app, routers, admin panel, SQLite models
-- `systemd/` — Raspberry Pi systemd unit file (`cloudapi-local.service`)
+- `src/` — flat package (imports rely on `PYTHONPATH=src`)
+  - `main.py` — FastAPI app + lifespan
+  - `routers/` — HTTP endpoints (`sync.py` enqueues tasks; `tasks.py` exposes status)
+  - `services/` — `sync_service.py` (Monobank logic), `tasks.py` (task queue helpers)
+  - `jobs/` — task-type → handler `JOB_REGISTRY` consumed by the worker
+  - `worker.py` — background worker process (poll loop + bounded retries)
+  - `logging_config.py` — central stdlib logging (server + worker)
+  - `admin.py`, `models.py`, `database.py`, `config.py`, `templates/`
+- `systemd/` — Raspberry Pi units: `cloudapi-local.service`, `cloudapi-worker.service`
 - `tests/` — pytest unit tests
 - `secrets/` — gitignored: local_server.env, cloudapi_local.db
 
@@ -19,6 +26,7 @@ It syncs accounts and transactions directly from Monobank into a local SQLite da
 ```bash
 make install        # Install deps with uv into .venv
 make server         # FastAPI dev server on port 8088
+make worker         # Background task worker (separate process)
 make test           # Run tests
 make docker-run     # Run via Docker Compose
 ```
@@ -33,7 +41,8 @@ make docker-run     # Run via Docker Compose
 
 | Service             | Port | Source                                    |
 |---------------------|------|-------------------------------------------|
-| `local_server`      | 8088 | `src/local_server/main.py`                |
+| `local_server`      | 8088 | `src/main.py`                             |
+| `worker`            | —    | `src/worker.py` (`cloudapi-worker.service`) |
 
 ## API Endpoints
 
@@ -44,9 +53,14 @@ make docker-run     # Run via Docker Compose
 - `GET /accounts/` — list accounts
 - `GET /transactions/` — list transactions
 - `GET /reports/monthly` — monthly budget report
-- `POST /sync/accounts` — sync accounts from Monobank
-- `POST /sync/transactions` — sync transactions from Monobank
+- `POST /sync/accounts` — **enqueue** an accounts sync task (202 `{task_id, status}`)
+- `POST /sync/transactions` — **enqueue** a transactions sync task (202)
+- `GET /tasks/` — list recent tasks (optional `?status=&limit=`)
+- `GET /tasks/{id}` — single task status / result
 - `GET /admin/` — SQLAdmin web UI
+
+> Sync runs in the **worker** process, not the HTTP request. Endpoints only enqueue;
+> the worker (`make worker` / `cloudapi-worker.service`) consumes the task queue.
 
 ## Raspberry Pi Deployment
 
@@ -60,5 +74,5 @@ Key paths on Pi:
 Update after `git pull`:
 ```bash
 uv pip install -e ".[test]" --python .venv/bin/python
-sudo systemctl restart cloudapi-local.service
+sudo systemctl restart cloudapi-local.service cloudapi-worker.service
 ```

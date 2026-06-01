@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 
@@ -11,11 +10,12 @@ for p in (str(SRC), str(ROOT)):
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
-from main import app
+import database
 from database import get_session
+from main import app
 
 # In-memory SQLite for testing
 sqlite_url = "sqlite://"
@@ -23,12 +23,16 @@ engine = create_engine(
     sqlite_url, connect_args={"check_same_thread": False}, poolclass=StaticPool
 )
 
+
 @pytest.fixture(name="session")
-def session_fixture():
+def session_fixture(monkeypatch):
     SQLModel.metadata.create_all(engine)
+    # Point worker/job code (which opens Session(database.engine)) at the test DB.
+    monkeypatch.setattr(database, "engine", engine)
     with Session(engine) as session:
         yield session
     SQLModel.metadata.drop_all(engine)
+
 
 @pytest.fixture(name="client")
 def client_fixture(session: Session):

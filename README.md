@@ -43,7 +43,44 @@ curl -fsS http://127.0.0.1:8088/healthz
 cp .env.example .env
 make install   # creates .venv and installs deps
 make server    # starts uvicorn on port 8088
+make worker    # in a second terminal: starts the background worker
 ```
+
+## Background Worker
+
+Sync no longer runs inside the HTTP request. The `POST /sync/*` endpoints (and the
+admin Sync panel) **enqueue a task** into a table on the existing SQLite DB and
+return `202 {"task_id": N, "status": "queued"}` immediately. A separate **worker
+process** (`src/worker.py`) polls that table, runs the Monobank sync, and records
+the result. No Redis/Celery — a single sequential worker is enough (Monobank's
+1-minute rate-limit cooldown forces serialization anyway).
+
+```
+POST /sync/*  ──enqueue──▶  task table  ◀──claim──  worker (poll loop)
+GET /tasks, /tasks/{id}  ── read task status / result
+```
+
+- **Task types:** `sync_accounts`, `sync_transactions` (payload `{"days": N, "user_id": ...}`).
+- **Dedupe:** enqueuing a task identical to one already pending returns the existing id.
+- **Retries:** a failed task is retried with a 60s backoff (Monobank cooldown), capped
+  at `WORKER_MAX_ATTEMPTS` (default 15) and `WORKER_TASK_DEADLINE_SEC` (default 900s).
+  After that it is dead-lettered (`status=error`). Validation / unknown-type errors are
+  terminal immediately.
+- **Crash recovery:** tasks left `running` after a crash are requeued on worker startup
+  (sync is idempotent via `session.merge`).
+- **Config (env):** `LOG_LEVEL`, `WORKER_POLL_INTERVAL`, `WORKER_RETRY_BACKOFF_SEC`,
+  `WORKER_MAX_ATTEMPTS`, `WORKER_TASK_DEADLINE_SEC` — see `.env.example`.
+
+Trigger and inspect:
+
+```bash
+curl -XPOST http://127.0.0.1:8088/sync/accounts      # → {"task_id": 1, "status": "queued"}
+curl http://127.0.0.1:8088/tasks/                    # recent tasks + status
+curl http://127.0.0.1:8088/tasks/1                   # one task with result/error
+```
+
+The admin Sync panel (`/admin/sync-panel`) enqueues the same tasks and shows a
+recent-tasks table; refresh to see status change.
 
 ## Run (bare-metal Raspberry Pi, systemd + pyenv)
 
@@ -127,13 +164,15 @@ Use real filenames if yours differ (e.g. copy from `.env.example`).
 The shipped unit in `systemd/` is aligned with **`ironcow`** and **`/home/ironcow/Projects/Monohelper_Local`**. If you changed `DEPLOY_USER` / `APP_DIR`, edit `User=`, `Group=`, `WorkingDirectory=`, `Environment=PYTHONPATH=`, and `ExecStart=` paths in the unit file before copying.
 
 ```bash
-# 1) Copy the admin local server service
+# 1) Copy both units: the admin server and the background worker
 sudo cp "${APP_DIR}/systemd/cloudapi-local.service" /etc/systemd/system/
+sudo cp "${APP_DIR}/systemd/cloudapi-worker.service" /etc/systemd/system/
 
 sudo systemctl daemon-reload
 
 # 2) Enable + start
 sudo systemctl enable --now cloudapi-local.service
+sudo systemctl enable --now cloudapi-worker.service
 ```
 
 ### 7. Verify
@@ -143,6 +182,11 @@ sudo systemctl enable --now cloudapi-local.service
 curl -fsS http://127.0.0.1:8088/healthz
 curl -fsI http://127.0.0.1:8088/admin   # should return 200 or redirect to /admin/
 journalctl -u cloudapi-local.service -f
+
+# Worker: queue a task and watch it run
+curl -fsS -XPOST http://127.0.0.1:8088/sync/accounts   # → {"task_id": N, "status": "queued"}
+curl -fsS http://127.0.0.1:8088/tasks/                 # task should move pending → success
+journalctl -u cloudapi-worker.service -f
 ```
 
 ### 8. Update service after code changes on the Pi
@@ -158,13 +202,15 @@ git pull
 # 2. Sync Python dependencies (fast, only installs what changed)
 uv pip install -e ".[test]" --python .venv/bin/python
 
-# 3. Restart the admin server (port 8088)
+# 3. Restart the admin server (port 8088) and the worker
 sudo cp "${APP_DIR}/systemd/cloudapi-local.service" /etc/systemd/system/
-sudo systemctl daemon-reload          # only needed if the .service file itself changed
+sudo cp "${APP_DIR}/systemd/cloudapi-worker.service" /etc/systemd/system/
+sudo systemctl daemon-reload          # only needed if a .service file itself changed
 sudo systemctl restart cloudapi-local.service
+sudo systemctl restart cloudapi-worker.service
 
 # 4. Verify
-sudo systemctl status cloudapi-local.service
+sudo systemctl status cloudapi-local.service cloudapi-worker.service
 curl -fsS http://127.0.0.1:8088/healthz
 curl -fsI http://127.0.0.1:8088/admin
 ```

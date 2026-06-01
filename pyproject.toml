@@ -30,6 +30,9 @@ test = [
   "httpx>=0.23.0",
 ]
 
+[project.scripts]
+monohelper-worker = "worker:main"
+
 [tool.pytest.ini_options]
 pythonpath = [
   "src",

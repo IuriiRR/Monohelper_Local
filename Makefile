@@ -1,4 +1,4 @@
-.PHONY: docker-run install test server
+.PHONY: docker-run install test server worker
 
 docker-run:
 	docker compose up
@@ -11,3 +11,6 @@ test:
 
 server:
 	PYTHONPATH=src .venv/bin/uvicorn main:app --reload --host 127.0.0.1 --port 8088
+
+worker:
+	PYTHONPATH=src .venv/bin/python -m worker

@@ -25,3 +25,9 @@ services:
         "--port", "8088",
         "--reload"
       ]
+
+  worker:
+    <<: *service_base
+    environment:
+      PYTHONPATH: /workspace/src
+    command: ["python", "-m", "worker"]

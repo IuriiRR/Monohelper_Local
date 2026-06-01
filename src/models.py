@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Optional, List
+from sqlalchemy import Column, JSON
 from sqlmodel import Field, SQLModel, Relationship
 
 class User(SQLModel, table=True):
@@ -53,3 +55,24 @@ class Transaction(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     account: Optional[Account] = Relationship(back_populates="transactions")
+
+
+class TaskStatus(str, Enum):
+    pending = "pending"
+    running = "running"
+    success = "success"
+    error = "error"
+
+
+class Task(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    type: str = Field(index=True)  # "sync_accounts" | "sync_transactions"
+    payload: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    status: str = Field(default=TaskStatus.pending.value, index=True)
+    result: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    error: Optional[str] = None  # traceback text on dead-letter
+    attempts: int = Field(default=0)  # handler invocations (incl. retries)
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None

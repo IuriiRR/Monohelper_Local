@@ -1,0 +1,29 @@
+[Unit]
+Description=Monohelper background worker (task queue consumer)
+After=network-online.target cloudapi-local.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User/Group and paths if your deploy user or directory differs.
+User=ironcow
+Group=ironcow
+WorkingDirectory=/home/ironcow/Projects/Monohelper_Local
+EnvironmentFile=/etc/cloudapi/local_server.env
+Environment=PYTHONPATH=/home/ironcow/Projects/Monohelper_Local/src
+ExecStart=/home/ironcow/Projects/Monohelper_Local/.venv/bin/python -m worker
+Restart=always
+RestartSec=5
+# Long enough for one in-flight sync pass (per-account throttle + 60s 429 backoff)
+# to finish before SIGKILL on stop. Orphaned tasks are requeued on next start.
+TimeoutStopSec=300
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

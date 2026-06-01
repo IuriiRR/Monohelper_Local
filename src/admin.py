@@ -1,4 +1,3 @@
-import asyncio
 import calendar
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,9 +10,7 @@ from sqlalchemy.orm import Session as SASession
 from sqlmodel import Session as SQLModelSession
 
 from models import Account, Transaction, User
-from routers.sync import SyncTransactionsRequest
-from routers.sync import sync_accounts as _do_sync_accounts
-from routers.sync import sync_transactions as _do_sync_transactions
+from services.tasks import enqueue, recent
 
 
 class UserAdmin(ModelView, model=User):
@@ -179,41 +176,39 @@ class SyncView(BaseView):
     name = "Sync"
     icon = "fa-solid fa-rotate"
 
+    def _render(self, request: Request, queued_task_id=None):
+        engine = self._admin_ref.engine  # type: ignore[assignment]
+        with SQLModelSession(engine) as session:
+            tasks = recent(session, limit=20)
+        return self.templates.TemplateResponse(
+            request,
+            "sync_panel.html",
+            {"queued_task_id": queued_task_id, "recent_tasks": tasks},
+        )
+
     @expose("/sync-panel", methods=["GET"])
     async def sync_panel(self, request: Request):
-        return await self.templates.TemplateResponse(
-            request, "sync_panel.html", {"result": None, "action": None}
-        )
+        return await self._render(request)
 
     @expose("/sync-panel/accounts", methods=["POST"])
     async def sync_accounts(self, request: Request):
         engine = self._admin_ref.engine  # type: ignore[assignment]
-
-        def _run():
-            with SQLModelSession(engine) as session:
-                return _do_sync_accounts(session=session)
-
-        result = await asyncio.to_thread(_run)
-        return await self.templates.TemplateResponse(
-            request, "sync_panel.html", {"result": result, "action": "accounts"}
-        )
+        with SQLModelSession(engine) as session:
+            task = enqueue(session, type="sync_accounts", payload={})
+            task_id = task.id
+        return await self._render(request, queued_task_id=task_id)
 
     @expose("/sync-panel/transactions", methods=["POST"])
     async def sync_transactions(self, request: Request):
         form = await request.form()
         days = int(str(form.get("days", "30") or "30"))
         engine = self._admin_ref.engine  # type: ignore[assignment]
-
-        def _run():
-            with SQLModelSession(engine) as session:
-                return _do_sync_transactions(
-                    body=SyncTransactionsRequest(days=days), session=session
-                )
-
-        result = await asyncio.to_thread(_run)
-        return await self.templates.TemplateResponse(
-            request, "sync_panel.html", {"result": result, "action": "transactions"}
-        )
+        with SQLModelSession(engine) as session:
+            task = enqueue(
+                session, type="sync_transactions", payload={"days": days}
+            )
+            task_id = task.id
+        return await self._render(request, queued_task_id=task_id)
 
 
 def setup_admin(app, engine):

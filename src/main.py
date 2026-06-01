@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from admin import setup_admin
 from database import create_db_and_tables, engine
-from routers import accounts, reports, sync, transactions, users
+from logging_config import setup_logging
+from routers import accounts, reports, sync, tasks, transactions, users
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,7 @@ _health: dict = {"last_heartbeat_at": None, "last_error": None}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
     create_db_and_tables()
     setup_admin(app, engine)
     yield
@@ -34,6 +36,7 @@ app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(accounts.router, prefix="/accounts", tags=["accounts"])
 app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
 app.include_router(sync.router, prefix="/sync", tags=["sync"])
+app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 
 
