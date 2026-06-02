@@ -11,6 +11,9 @@ Group=ironcow
 WorkingDirectory=/home/ironcow/Projects/Monohelper_Local
 EnvironmentFile=/etc/cloudapi/local_server.env
 Environment=PYTHONPATH=/home/ironcow/Projects/Monohelper_Local/src
+Environment=SCHEDULE_ACCOUNTS_TIME=22:00
+Environment=SCHEDULE_TRANSACTIONS_TIME=23:00
+Environment=SCHEDULE_TZ=Europe/Kyiv
 ExecStart=/home/ironcow/Projects/Monohelper_Local/.venv/bin/python -m worker
 Restart=always
 RestartSec=5

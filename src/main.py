@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +17,7 @@ _health: dict = {"last_heartbeat_at": None, "last_error": None}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    load_dotenv()
     setup_logging()
     create_db_and_tables()
     setup_admin(app, engine)

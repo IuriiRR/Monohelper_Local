@@ -10,8 +10,9 @@ import os
 import signal
 import threading
 import traceback
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Callable, Optional
+from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
 from sqlmodel import Session
@@ -20,6 +21,7 @@ import database
 from jobs import JOB_REGISTRY
 from logging_config import setup_logging
 from models import Task
+from scheduler import ScheduledJob, check_and_enqueue
 from services.tasks import (
     claim_next,
     complete,
@@ -53,6 +55,17 @@ POLL_INTERVAL = _env_float("WORKER_POLL_INTERVAL", 2.0)
 RETRY_BACKOFF_SEC = _env_float("WORKER_RETRY_BACKOFF_SEC", 60.0)
 MAX_ATTEMPTS = _env_int("WORKER_MAX_ATTEMPTS", 15)
 TASK_DEADLINE_SEC = _env_float("WORKER_TASK_DEADLINE_SEC", 900.0)
+
+
+def _parse_schedule(accounts_str: str, transactions_str: str, tz_str: str) -> tuple[list[ScheduledJob], ZoneInfo]:
+    tz = ZoneInfo(tz_str)
+    jobs: list[ScheduledJob] = []
+    for task_type, raw in (("sync_accounts", accounts_str), ("sync_transactions", transactions_str)):
+        if not raw:
+            continue
+        h, m = raw.strip().split(":")
+        jobs.append(ScheduledJob(task_type=task_type, scheduled_time=time(int(h), int(m))))
+    return jobs, tz
 
 
 def _default_sleep(seconds: float) -> None:
@@ -133,7 +146,10 @@ def _install_signal_handlers() -> None:
     signal.signal(signal.SIGINT, _handle)
 
 
-def run_loop() -> None:
+def run_loop(
+    jobs: Optional[list[ScheduledJob]] = None,
+    tz: Optional[ZoneInfo] = None,
+) -> None:
     """Poll the queue until shutdown is requested."""
     with Session(database.engine) as session:
         requeued = requeue_orphans(session)
@@ -150,17 +166,31 @@ def run_loop() -> None:
             task = claim_next(session)
             if task is not None:
                 run_one(session, task)
-        if task is None:
-            _shutdown.wait(POLL_INTERVAL)
+            else:
+                if jobs and tz:
+                    check_and_enqueue(session, jobs, tz)
+                _shutdown.wait(POLL_INTERVAL)
 
     logger.info("worker stopped gracefully")
 
 
 def main() -> None:
+    from dotenv import load_dotenv
+    load_dotenv()
     setup_logging(os.getenv("LOG_LEVEL", "INFO"))
     database.create_db_and_tables()  # worker may start before the web process
     _install_signal_handlers()
-    run_loop()
+    jobs, tz = _parse_schedule(
+        os.getenv("SCHEDULE_ACCOUNTS_TIME", ""),
+        os.getenv("SCHEDULE_TRANSACTIONS_TIME", ""),
+        os.getenv("SCHEDULE_TZ", "Europe/Kyiv"),
+    )
+    if jobs:
+        logger.info(
+            "scheduler: %d job(s) configured (tz=%s): %s",
+            len(jobs), tz.key, [(j.task_type, j.scheduled_time.strftime("%H:%M")) for j in jobs],
+        )
+    run_loop(jobs=jobs, tz=tz)
 
 
 if __name__ == "__main__":

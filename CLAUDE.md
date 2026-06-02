@@ -14,7 +14,8 @@ It syncs accounts and transactions directly from Monobank into a local SQLite da
   - `routers/` — HTTP endpoints (`sync.py` enqueues tasks; `tasks.py` exposes status)
   - `services/` — `sync_service.py` (Monobank logic), `tasks.py` (task queue helpers)
   - `jobs/` — task-type → handler `JOB_REGISTRY` consumed by the worker
-  - `worker.py` — background worker process (poll loop + bounded retries)
+  - `worker.py` — background worker process (poll loop + bounded retries + daily scheduler)
+  - `scheduler.py` — daily task scheduler (`check_and_enqueue`); called by worker on each idle tick
   - `logging_config.py` — central stdlib logging (server + worker)
   - `admin.py`, `models.py`, `database.py`, `config.py`, `templates/`
 - `systemd/` — Raspberry Pi units: `cloudapi-local.service`, `cloudapi-worker.service`
@@ -61,6 +62,18 @@ make docker-run     # Run via Docker Compose
 
 > Sync runs in the **worker** process, not the HTTP request. Endpoints only enqueue;
 > the worker (`make worker` / `cloudapi-worker.service`) consumes the task queue.
+
+## Scheduled Sync
+
+Worker auto-enqueues daily syncs when env vars are set:
+
+| Var | Default | Purpose |
+|-----|---------|---------|
+| `SCHEDULE_ACCOUNTS_TIME` | _(disabled)_ | Daily accounts sync time (`HH:MM`) |
+| `SCHEDULE_TRANSACTIONS_TIME` | _(disabled)_ | Daily transactions sync time (`HH:MM`) |
+| `SCHEDULE_TZ` | `Europe/Kyiv` | IANA timezone for schedule times |
+
+Pre-configured in `systemd/cloudapi-worker.service` (22:00 accounts, 23:00 transactions). Omit a var to disable that job.
 
 ## Raspberry Pi Deployment
 
