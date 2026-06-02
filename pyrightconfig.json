@@ -1,0 +1,15 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "standard",
+  "exclude": [
+    "tests/",
+    "src/admin.py",
+    "src/models.py",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "**/.*"
+  ]
+}

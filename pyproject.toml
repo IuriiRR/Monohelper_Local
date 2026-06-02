@@ -46,6 +46,7 @@ pythonpath = [
   "src",
   ".",
 ]
+filterwarnings = ["ignore::starlette.exceptions.StarletteDeprecationWarning"]
 
 [tool.ruff]
 src = ["src"]
@@ -82,7 +83,7 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 65
+fail_under = 80
 omit = [
   "src/admin.py",         # SQLAdmin UI — requires live server + DB to test
   "src/logging_config.py", # logging setup — no meaningful unit tests
