@@ -3,10 +3,10 @@
 Plain functions (no FastAPI) so both the HTTP router (which now only enqueues)
 and the background worker can call them. Moved out of ``routers/sync.py``.
 """
+
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import requests
 from pydantic import BaseModel
@@ -20,14 +20,12 @@ MONO_API_URL = "https://api.monobank.ua"
 
 
 class SyncTransactionsRequest(BaseModel):
-    user_id: Optional[str] = None
+    user_id: str | None = None
     days: int = 30
 
 
 def sync_accounts(session: Session) -> dict:
-    users = session.exec(
-        select(User).where(User.active == True, User.mono_token != "")
-    ).all()
+    users = session.exec(select(User).where(User.active == True, User.mono_token != "")).all()
 
     processed_users = 0
     total_accounts_synced = 0
@@ -46,35 +44,39 @@ def sync_accounts(session: Session) -> dict:
             continue
 
         data = resp.json()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         count = 0
 
         for acc in data.get("accounts", []):
-            session.merge(Account(
-                id=acc["id"],
-                user_id=user.user_id,
-                type="card",
-                send_id=acc.get("sendId"),
-                currency_code=int(acc.get("currencyCode", 980)),
-                balance=int(acc.get("balance", 0)),
-                is_active=True,
-                updated_at=now,
-            ))
+            session.merge(
+                Account(
+                    id=acc["id"],
+                    user_id=user.user_id,
+                    type="card",
+                    send_id=acc.get("sendId"),
+                    currency_code=int(acc.get("currencyCode", 980)),
+                    balance=int(acc.get("balance", 0)),
+                    is_active=True,
+                    updated_at=now,
+                )
+            )
             count += 1
 
         for jar in data.get("jars", []):
-            session.merge(Account(
-                id=jar["id"],
-                user_id=user.user_id,
-                type="jar",
-                send_id=jar.get("sendId"),
-                currency_code=int(jar.get("currencyCode", 980)),
-                balance=int(jar.get("balance", 0)),
-                is_active=True,
-                title=jar.get("title"),
-                goal=jar.get("goal"),
-                updated_at=now,
-            ))
+            session.merge(
+                Account(
+                    id=jar["id"],
+                    user_id=user.user_id,
+                    type="jar",
+                    send_id=jar.get("sendId"),
+                    currency_code=int(jar.get("currencyCode", 980)),
+                    balance=int(jar.get("balance", 0)),
+                    is_active=True,
+                    title=jar.get("title"),
+                    goal=jar.get("goal"),
+                    updated_at=now,
+                )
+            )
             count += 1
 
         session.commit()
@@ -101,9 +103,7 @@ def sync_transactions(
         user = session.get(User, body.user_id)
         if not user:
             return {"status": "error", "error": f"User {body.user_id} not found"}
-        accounts = session.exec(
-            select(Account).where(Account.user_id == body.user_id)
-        ).all()
+        accounts = session.exec(select(Account).where(Account.user_id == body.user_id)).all()
         token_map = {body.user_id: user.mono_token}
     else:
         accounts = session.exec(select(Account)).all()
@@ -140,25 +140,27 @@ def sync_transactions(
             continue
 
         txs = resp.json() or []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for tx in txs:
-            session.merge(Transaction(
-                id=tx["id"],
-                account_id=account.id,
-                user_id=account.user_id,
-                time=int(tx["time"]),
-                description=tx.get("description"),
-                amount=int(tx["amount"]),
-                operation_amount=tx.get("operationAmount"),
-                commission_rate=tx.get("commissionRate"),
-                cashback_amount=tx.get("cashbackAmount"),
-                balance=int(tx["balance"]),
-                hold=bool(tx.get("hold", False)),
-                comment=tx.get("comment"),
-                mcc_code=tx.get("mcc"),
-                original_mcc=tx.get("originalMcc"),
-                updated_at=now,
-            ))
+            session.merge(
+                Transaction(
+                    id=tx["id"],
+                    account_id=account.id,
+                    user_id=account.user_id,
+                    time=int(tx["time"]),
+                    description=tx.get("description"),
+                    amount=int(tx["amount"]),
+                    operation_amount=tx.get("operationAmount"),
+                    commission_rate=tx.get("commissionRate"),
+                    cashback_amount=tx.get("cashbackAmount"),
+                    balance=int(tx["balance"]),
+                    hold=bool(tx.get("hold", False)),
+                    comment=tx.get("comment"),
+                    mcc_code=tx.get("mcc"),
+                    original_mcc=tx.get("originalMcc"),
+                    updated_at=now,
+                )
+            )
 
         session.commit()
         processed_accounts += 1

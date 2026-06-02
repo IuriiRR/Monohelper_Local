@@ -1,5 +1,4 @@
 """Read-only task status endpoints."""
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
@@ -13,7 +12,7 @@ router = APIRouter()
 
 @router.get("/")
 def list_tasks(
-    status: Optional[str] = Query(default=None),
+    status: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     session: Session = Depends(get_session),
 ):

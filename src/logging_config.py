@@ -2,6 +2,7 @@
 
 Logs to stdout so systemd's journal (StandardOutput=journal) captures them.
 """
+
 import logging
 import sys
 

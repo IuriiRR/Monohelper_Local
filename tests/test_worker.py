@@ -1,4 +1,5 @@
 """Worker dispatch / retry tests. Drives ``run_one`` directly (no poll loop)."""
+
 from pydantic import BaseModel
 
 import worker

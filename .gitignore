@@ -19,3 +19,6 @@ secrets/*.db
 # Env
 .env
 !.env.example
+
+.coverage
+htmlcov/

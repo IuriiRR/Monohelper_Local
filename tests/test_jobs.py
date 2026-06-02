@@ -3,6 +3,7 @@
 Handlers open ``Session(database.engine)``; the ``session`` fixture points that
 engine at the in-memory test DB, so we only need to monkeypatch Monobank HTTP.
 """
+
 from jobs import JOB_REGISTRY
 
 
@@ -28,9 +29,7 @@ def test_sync_accounts_handler(session, monkeypatch):
     session.commit()
 
     def fake_get(url, headers=None, timeout=None):
-        return _Resp({"accounts": [
-            {"id": "acc1", "currencyCode": 980, "balance": 100, "sendId": "s"}
-        ], "jars": []})
+        return _Resp({"accounts": [{"id": "acc1", "currencyCode": 980, "balance": 100, "sendId": "s"}], "jars": []})
 
     monkeypatch.setattr("services.sync_service.requests.get", fake_get)
 
@@ -48,9 +47,7 @@ def test_sync_transactions_handler(session, monkeypatch):
     session.commit()
 
     def fake_get(url, headers=None, timeout=None):
-        return _Resp([
-            {"id": "tx1", "time": 1700000000, "amount": -500, "balance": 9500}
-        ])
+        return _Resp([{"id": "tx1", "time": 1700000000, "amount": -500, "balance": 9500}])
 
     monkeypatch.setattr("services.sync_service.requests.get", fake_get)
     monkeypatch.setattr("services.sync_service.time.sleep", lambda *_: None)

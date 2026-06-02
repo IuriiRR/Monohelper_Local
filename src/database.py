@@ -1,6 +1,7 @@
 import os
+
 from sqlalchemy import event
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import Session, SQLModel, create_engine
 
 # Put database inside secrets/ or a persistent local volume folder
 DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "secrets")
@@ -24,8 +25,10 @@ def _set_sqlite_pragma(dbapi_conn, _connection_record):
     cur.execute("PRAGMA busy_timeout=30000")
     cur.close()
 
+
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+
 
 def get_session():
     with Session(engine) as session:

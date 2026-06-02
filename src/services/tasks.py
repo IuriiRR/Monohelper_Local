@@ -5,9 +5,9 @@ worker claims/updates. SQLite WAL + busy_timeout (see ``database.py``) make the
 two-writer setup safe. All helpers take a ``Session`` and commit immediately to
 keep transactions short.
 """
+
 import logging
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import update
 from sqlmodel import Session, select
@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
-def enqueue(session: Session, type: str, payload: Optional[dict] = None) -> Task:
+def enqueue(session: Session, type: str, payload: dict | None = None) -> Task:
     """Insert a pending task. Dedupe: if an identical pending task (same type +
     payload) already exists, return it instead of stacking a backlog."""
     payload = payload or {}
@@ -45,21 +45,21 @@ def enqueue(session: Session, type: str, payload: Optional[dict] = None) -> Task
     return task
 
 
-def claim_next(session: Session) -> Optional[Task]:
+def claim_next(session: Session) -> Task | None:
     """Atomically claim the oldest pending task: flip it to running and return
     it. Single statement (UPDATE ... RETURNING) so it is race-free."""
     oldest_pending = (
         select(Task.id)
         .where(Task.status == TaskStatus.pending.value)
-        .order_by(Task.created_at, Task.id)
+        .order_by(Task.created_at, Task.id)  # type: ignore[arg-type]
         .limit(1)
         .scalar_subquery()
     )
     stmt = (
         update(Task)
-        .where(Task.id.in_(oldest_pending))
+        .where(Task.id.in_(oldest_pending))  # type: ignore[union-attr]
         .values(status=TaskStatus.running.value, started_at=_now())
-        .returning(Task.id)
+        .returning(Task.id)  # type: ignore[call-overload]
     )
     row = session.execute(stmt).first()
     session.commit()
@@ -71,6 +71,7 @@ def claim_next(session: Session) -> Optional[Task]:
 def mark_running_attempt(session: Session, task_id: int) -> int:
     """Increment the attempt counter for a task. Returns the new count."""
     task = session.get(Task, task_id)
+    assert task is not None, f"task #{task_id} not found"
     task.attempts += 1
     session.add(task)
     session.commit()
@@ -79,6 +80,7 @@ def mark_running_attempt(session: Session, task_id: int) -> int:
 
 def complete(session: Session, task_id: int, result: dict) -> None:
     task = session.get(Task, task_id)
+    assert task is not None, f"task #{task_id} not found"
     task.status = TaskStatus.success.value
     task.result = result
     task.finished_at = _now()
@@ -88,6 +90,7 @@ def complete(session: Session, task_id: int, result: dict) -> None:
 
 def fail(session: Session, task_id: int, error: str) -> None:
     task = session.get(Task, task_id)
+    assert task is not None, f"task #{task_id} not found"
     task.status = TaskStatus.error.value
     task.error = error
     task.finished_at = _now()
@@ -103,16 +106,16 @@ def requeue_orphans(session: Session) -> int:
     safe. Returns the number requeued."""
     stmt = (
         update(Task)
-        .where(Task.status == TaskStatus.running.value)
+        .where(Task.status == TaskStatus.running.value)  # type: ignore[arg-type]
         .values(status=TaskStatus.pending.value, started_at=None)
     )
     result = session.execute(stmt)
     session.commit()
-    return result.rowcount or 0
+    return result.rowcount or 0  # type: ignore[attr-defined]
 
 
-def recent(session: Session, status: Optional[str] = None, limit: int = 50) -> List[Task]:
-    q = select(Task).order_by(Task.created_at.desc()).limit(limit)
+def recent(session: Session, status: str | None = None, limit: int = 50) -> list[Task]:
+    q = select(Task).order_by(Task.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
     if status:
         q = q.where(Task.status == status)
     return list(session.exec(q).all())

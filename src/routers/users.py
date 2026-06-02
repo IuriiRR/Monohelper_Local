@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -12,7 +10,7 @@ router = APIRouter()
 
 class UserCreate(BaseModel):
     user_id: str
-    username: Optional[str] = None
+    username: str | None = None
     mono_token: str
 
 

@@ -1,4 +1,5 @@
 """Sync-enqueue + task status endpoint tests."""
+
 from fastapi.testclient import TestClient
 
 

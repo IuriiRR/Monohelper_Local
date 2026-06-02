@@ -28,6 +28,14 @@ dependencies = [
 test = [
   "pytest==8.3.2",
   "httpx>=0.23.0",
+  "pytest-cov>=5.0.0",
+]
+dev = [
+  "ruff>=0.4.0",
+  "mypy>=1.10.0",
+  "bandit[toml]>=1.7.0",
+  "vulture>=2.11",
+  "pyright>=1.1.0",
 ]
 
 [project.scripts]
@@ -38,3 +46,47 @@ pythonpath = [
   "src",
   ".",
 ]
+
+[tool.ruff]
+src = ["src"]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "S"]
+ignore = [
+  "S101",  # assert allowed in tests
+  "B008",  # FastAPI Depends() in argument defaults is idiomatic
+  "E712",  # SQLAlchemy requires `== True` for correct SQL generation
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["E402"]  # sys.path must come before imports
+"tests/**/*.py" = ["S106"]      # dummy tokens/passwords in fixtures are not secrets
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+explicit_package_bases = true
+mypy_path = "src"
+exclude = ["tests/", "src/admin.py"]
+# Progressive strictness — tighten over time
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 65
+omit = [
+  "src/admin.py",         # SQLAdmin UI — requires live server + DB to test
+  "src/logging_config.py", # logging setup — no meaningful unit tests
+]
+
+[tool.bandit]
+skips = ["B101", "B106", "B105"]  # B105: empty-string token filter is not a hardcoded password

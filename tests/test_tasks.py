@@ -1,5 +1,6 @@
 """Task queue helper tests."""
-from models import Task, TaskStatus
+
+from models import TaskStatus
 from services.tasks import (
     claim_next,
     complete,

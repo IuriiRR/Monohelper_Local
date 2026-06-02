@@ -1,9 +1,11 @@
 from fastapi.testclient import TestClient
 
+
 def test_root(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "CloudApi Local Server is running"}
+
 
 def test_healthz(client: TestClient):
     response = client.get("/healthz")
@@ -13,15 +15,18 @@ def test_healthz(client: TestClient):
     assert "last_heartbeat_at" in body
     assert "last_error" in body
 
+
 def test_list_users(client: TestClient):
     response = client.get("/users/")
     assert response.status_code == 200
     assert response.json() == {"users": []}
 
+
 def test_list_accounts(client: TestClient):
     response = client.get("/accounts/")
     assert response.status_code == 200
     assert response.json() == {"accounts": []}
+
 
 def test_sync_accounts_enqueues(client: TestClient):
     response = client.post("/sync/accounts")

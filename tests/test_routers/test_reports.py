@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -7,7 +7,7 @@ from models import Account, Transaction, User
 
 
 def _ts(year: int, month: int, day: int) -> int:
-    return int(datetime(year, month, day, tzinfo=timezone.utc).timestamp())
+    return int(datetime(year, month, day, tzinfo=UTC).timestamp())
 
 
 def _seed_user(session: Session, user_id: str = "u1") -> User:
@@ -17,14 +17,18 @@ def _seed_user(session: Session, user_id: str = "u1") -> User:
     return user
 
 
-def _seed_jar(session: Session, jar_id: str, user_id: str, balance: int = 0, is_budget: bool = True, title: str | None = None) -> Account:
+def _seed_jar(
+    session: Session, jar_id: str, user_id: str, balance: int = 0, is_budget: bool = True, title: str | None = None
+) -> Account:
     jar = Account(id=jar_id, user_id=user_id, type="jar", balance=balance, is_budget=is_budget, title=title)
     session.add(jar)
     session.commit()
     return jar
 
 
-def _seed_tx(session: Session, tx_id: str, account_id: str, user_id: str, time: int, amount: int, balance: int) -> Transaction:
+def _seed_tx(
+    session: Session, tx_id: str, account_id: str, user_id: str, time: int, amount: int, balance: int
+) -> Transaction:
     tx = Transaction(id=tx_id, account_id=account_id, user_id=user_id, time=time, amount=amount, balance=balance)
     session.add(tx)
     session.commit()

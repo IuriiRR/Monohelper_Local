@@ -1,5 +1,5 @@
 import calendar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import Request
@@ -51,9 +51,7 @@ class JarAccountAdmin(ModelView, model=Account):
                     account.is_budget = not account.is_budget
                     session.add(account)
             session.commit()
-        return RedirectResponse(
-            request.url_for("admin:list", identity=self.identity), status_code=302
-        )
+        return RedirectResponse(request.url_for("admin:list", identity=self.identity), status_code=302)
 
 
 # sqladmin metaclass unconditionally sets identity from model.__name__; override after definition
@@ -98,35 +96,20 @@ class MonthlyReportView(BaseView):
 
     @expose("/monthly-report", methods=["GET"])
     async def monthly_report(self, request: Request):
-        month = request.query_params.get(
-            "month", datetime.now(timezone.utc).strftime("%Y-%m")
-        )
+        month = request.query_params.get("month", datetime.now(UTC).strftime("%Y-%m"))
 
         try:
             dt = datetime.strptime(month, "%Y-%m")
         except ValueError:
-            dt = datetime.now(timezone.utc)
+            dt = datetime.now(UTC)
             month = dt.strftime("%Y-%m")
 
         _, last_day = calendar.monthrange(dt.year, dt.month)
-        month_start = int(
-            datetime(dt.year, dt.month, 1, tzinfo=timezone.utc).timestamp()
-        )
-        month_end = (
-            int(
-                datetime(
-                    dt.year, dt.month, last_day, 23, 59, 59, tzinfo=timezone.utc
-                ).timestamp()
-            )
-            + 1
-        )
+        month_start = int(datetime(dt.year, dt.month, 1, tzinfo=UTC).timestamp())
+        month_end = int(datetime(dt.year, dt.month, last_day, 23, 59, 59, tzinfo=UTC).timestamp()) + 1
 
         with SASession(self._admin_ref.engine) as session:
-            jars = (
-                session.execute(select(Account).where(Account.is_budget))
-                .scalars()
-                .all()
-            )
+            jars = session.execute(select(Account).where(Account.is_budget)).scalars().all()
 
             result = []
             for jar in jars:
@@ -159,9 +142,7 @@ class MonthlyReportView(BaseView):
                         "budget": budget,
                         "total_deposits": total_deposits,
                         "spent": spent,
-                        "transactions": [
-                            {"time": tx.time, "balance": tx.balance} for tx in txs
-                        ],
+                        "transactions": [{"time": tx.time, "balance": tx.balance} for tx in txs],
                     }
                 )
 
@@ -204,9 +185,7 @@ class SyncView(BaseView):
         days = int(str(form.get("days", "30") or "30"))
         engine = self._admin_ref.engine  # type: ignore[assignment]
         with SQLModelSession(engine) as session:
-            task = enqueue(
-                session, type="sync_transactions", payload={"days": days}
-            )
+            task = enqueue(session, type="sync_transactions", payload={"days": days})
             task_id = task.id
         return await self._render(request, queued_task_id=task_id)
 

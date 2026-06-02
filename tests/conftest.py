@@ -19,9 +19,7 @@ from main import app
 
 # In-memory SQLite for testing
 sqlite_url = "sqlite://"
-engine = create_engine(
-    sqlite_url, connect_args={"check_same_thread": False}, poolclass=StaticPool
-)
+engine = create_engine(sqlite_url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 
 
 @pytest.fixture(name="session")

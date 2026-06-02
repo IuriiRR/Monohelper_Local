@@ -7,9 +7,10 @@ Idempotency: skips if a non-error task of the same type was created at or
 after today's scheduled time. Manual runs earlier in the day do NOT block
 the scheduled run.
 """
+
 import logging
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
+from datetime import UTC, datetime, time
 from zoneinfo import ZoneInfo
 
 from sqlmodel import Session, select
@@ -36,11 +37,16 @@ def check_and_enqueue(session: Session, jobs: list[ScheduledJob], tz: ZoneInfo) 
             continue
         # Naive UTC cutoff: today at the scheduled time.
         # Only tasks created at/after this point count — manual earlier runs don't block.
-        scheduled_since = now.replace(
-            hour=job.scheduled_time.hour,
-            minute=job.scheduled_time.minute,
-            second=0, microsecond=0,
-        ).astimezone(timezone.utc).replace(tzinfo=None)
+        scheduled_since = (
+            now.replace(
+                hour=job.scheduled_time.hour,
+                minute=job.scheduled_time.minute,
+                second=0,
+                microsecond=0,
+            )
+            .astimezone(UTC)
+            .replace(tzinfo=None)
+        )
         existing = session.exec(
             select(Task).where(
                 Task.type == job.task_type,

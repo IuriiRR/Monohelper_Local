@@ -25,11 +25,25 @@ It syncs accounts and transactions directly from Monobank into a local SQLite da
 ## Quick Start
 
 ```bash
-make install        # Install deps with uv into .venv
+make install        # Install deps with uv into .venv (test + dev extras)
 make server         # FastAPI dev server on port 8088
 make worker         # Background task worker (separate process)
 make test           # Run tests
 make docker-run     # Run via Docker Compose
+```
+
+## Code Quality
+
+```bash
+make lint           # ruff check — lint errors
+make format         # ruff format — auto-format in place
+make format-check   # ruff format --check — CI-safe format gate
+make typecheck      # mypy strict — static type checking
+make coverage       # pytest + coverage (HTML report in htmlcov/)
+make security       # bandit — security vulnerability scan
+make deadcode       # vulture — unused code detection
+make pyright        # pyright — additional type checking
+make quality        # all gates: lint + format-check + typecheck + coverage + security + deadcode
 ```
 
 ## Tests
@@ -86,6 +100,6 @@ Key paths on Pi:
 
 Update after `git pull`:
 ```bash
-uv pip install -e ".[test]" --python .venv/bin/python
+uv pip install -e ".[test,dev]" --python .venv/bin/python
 sudo systemctl restart cloudapi-local.service cloudapi-worker.service
 ```

@@ -5,13 +5,14 @@ Run via ``make worker``, ``python -m worker``, or the ``monohelper-worker``
 console script. Stops gracefully on SIGTERM/SIGINT, finishing the in-flight
 task first.
 """
+
 import logging
 import os
 import signal
 import threading
 import traceback
-from datetime import datetime, time, timedelta, timezone
-from typing import Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
@@ -80,7 +81,7 @@ def run_one(
     max_attempts: int = MAX_ATTEMPTS,
     backoff_sec: float = RETRY_BACKOFF_SEC,
     deadline_sec: float = TASK_DEADLINE_SEC,
-    sleep: Optional[Callable[[float], None]] = None,
+    sleep: Callable[[float], None] | None = None,
 ) -> None:
     """Run a claimed task with bounded retries.
 
@@ -91,6 +92,7 @@ def run_one(
     if sleep is None:
         sleep = _default_sleep
 
+    assert task.id is not None, "task fetched from DB must have an id"
     task_id = task.id
     task_type = task.type
     payload = task.payload
@@ -101,7 +103,7 @@ def run_one(
         logger.error("task #%s: unknown type %r", task_id, task_type)
         return
 
-    deadline = datetime.now(timezone.utc) + timedelta(seconds=deadline_sec)
+    deadline = datetime.now(UTC) + timedelta(seconds=deadline_sec)
 
     while True:
         attempt = mark_running_attempt(session, task_id)
@@ -120,20 +122,19 @@ def run_one(
             tb = traceback.format_exc()
             logger.error("task #%s failed on attempt %d:\n%s", task_id, attempt, tb)
             exhausted = attempt >= max_attempts
-            past_deadline = (
-                datetime.now(timezone.utc) + timedelta(seconds=backoff_sec) >= deadline
-            )
+            past_deadline = datetime.now(UTC) + timedelta(seconds=backoff_sec) >= deadline
             if exhausted or past_deadline or _shutdown.is_set():
                 fail(session, task_id, tb)
                 logger.error(
-                    "task #%s dead-lettered (attempts=%d, exhausted=%s, "
-                    "past_deadline=%s, shutdown=%s)",
-                    task_id, attempt, exhausted, past_deadline, _shutdown.is_set(),
+                    "task #%s dead-lettered (attempts=%d, exhausted=%s, past_deadline=%s, shutdown=%s)",
+                    task_id,
+                    attempt,
+                    exhausted,
+                    past_deadline,
+                    _shutdown.is_set(),
                 )
                 return
-            logger.info(
-                "task #%s: retrying in %.0fs (Monobank cooldown)", task_id, backoff_sec
-            )
+            logger.info("task #%s: retrying in %.0fs (Monobank cooldown)", task_id, backoff_sec)
             sleep(backoff_sec)
 
 
@@ -147,8 +148,8 @@ def _install_signal_handlers() -> None:
 
 
 def run_loop(
-    jobs: Optional[list[ScheduledJob]] = None,
-    tz: Optional[ZoneInfo] = None,
+    jobs: list[ScheduledJob] | None = None,
+    tz: ZoneInfo | None = None,
 ) -> None:
     """Poll the queue until shutdown is requested."""
     with Session(database.engine) as session:
@@ -158,7 +159,10 @@ def run_loop(
 
     logger.info(
         "worker started (poll=%.1fs, backoff=%.0fs, max_attempts=%d, deadline=%.0fs)",
-        POLL_INTERVAL, RETRY_BACKOFF_SEC, MAX_ATTEMPTS, TASK_DEADLINE_SEC,
+        POLL_INTERVAL,
+        RETRY_BACKOFF_SEC,
+        MAX_ATTEMPTS,
+        TASK_DEADLINE_SEC,
     )
 
     while not _shutdown.is_set():
@@ -176,6 +180,7 @@ def run_loop(
 
 def main() -> None:
     from dotenv import load_dotenv
+
     load_dotenv()
     setup_logging(os.getenv("LOG_LEVEL", "INFO"))
     database.create_db_and_tables()  # worker may start before the web process
@@ -188,7 +193,9 @@ def main() -> None:
     if jobs:
         logger.info(
             "scheduler: %d job(s) configured (tz=%s): %s",
-            len(jobs), tz.key, [(j.task_type, j.scheduled_time.strftime("%H:%M")) for j in jobs],
+            len(jobs),
+            tz.key,
+            [(j.task_type, j.scheduled_time.strftime("%H:%M")) for j in jobs],
         )
     run_loop(jobs=jobs, tz=tz)
 

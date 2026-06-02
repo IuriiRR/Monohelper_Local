@@ -1,6 +1,7 @@
 """Sync endpoints. These no longer run the sync inline — they enqueue a task
 that the background worker picks up, and return 202 immediately.
 """
+
 from fastapi import APIRouter, Depends, status
 from sqlmodel import Session
 

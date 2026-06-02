@@ -1,19 +1,20 @@
-from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select
+
 from database import get_session
 from models import Transaction
 
 router = APIRouter()
 
+
 @router.get("/")
 def list_transactions(
-    user_id: Optional[str] = Query(default=None),
-    account_id: Optional[str] = Query(default=None),
+    user_id: str | None = Query(default=None),
+    account_id: str | None = Query(default=None),
     limit: int = Query(default=100, le=1000),
     session: Session = Depends(get_session),
 ):
-    q = select(Transaction).order_by(Transaction.time.desc())  # type: ignore[arg-type]
+    q = select(Transaction).order_by(Transaction.time.desc())  # type: ignore[attr-defined]
     if user_id:
         q = q.where(Transaction.user_id == user_id)
     if account_id:

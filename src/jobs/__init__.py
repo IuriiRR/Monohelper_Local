@@ -3,6 +3,7 @@
 Each handler has the signature ``run(payload: dict) -> dict``. Task ``type``
 strings stored in the queue must match these registry keys.
 """
+
 from jobs import sync_accounts, sync_transactions
 
 JOB_REGISTRY = {
