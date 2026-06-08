@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from admin import setup_admin
 from database import create_db_and_tables, engine
@@ -11,6 +12,21 @@ from logging_config import setup_logging
 from routers import accounts, reports, sync, tasks, transactions, users
 
 logger = logging.getLogger(__name__)
+
+
+class ForwardedPrefixMiddleware:
+    """Sets ASGI root_path from X-Forwarded-Prefix (sent by nginx gateway only)."""
+
+    def __init__(self, inner: ASGIApp) -> None:
+        self._inner = inner
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] in ("http", "websocket"):
+            headers = dict(scope.get("headers", []))
+            prefix = headers.get(b"x-forwarded-prefix", b"").decode().strip()
+            if prefix:
+                scope = {**scope, "app_root_path": prefix}
+        await self._inner(scope, receive, send)
 
 _health: dict = {"last_heartbeat_at": None, "last_error": None}
 
@@ -54,3 +70,6 @@ async def healthz():
         "last_heartbeat_at": _health["last_heartbeat_at"],
         "last_error": _health["last_error"],
     }
+
+
+app = ForwardedPrefixMiddleware(app)  # type: ignore[assignment]

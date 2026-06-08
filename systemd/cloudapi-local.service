@@ -11,7 +11,7 @@ Group=ironcow
 WorkingDirectory=/home/ironcow/Projects/Monohelper_Local
 EnvironmentFile=/etc/cloudapi/local_server.env
 Environment=PYTHONPATH=/home/ironcow/Projects/Monohelper_Local/src
-ExecStart=/home/ironcow/Projects/Monohelper_Local/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8088
+ExecStart=/home/ironcow/Projects/Monohelper_Local/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8088 --proxy-headers --forwarded-allow-ips=127.0.0.1
 Restart=always
 RestartSec=5
 TimeoutStopSec=20
