@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/y/Projects/Monohelper_Local && case \"$CLAUDE_TOOL_INPUT_FILE_PATH\" in *.py) .venv/bin/ruff check \"$CLAUDE_TOOL_INPUT_FILE_PATH\" --fix --quiet 2>/dev/null || true ;; esac"
+            "command": "cd /home/ironcow/Projects/Monohelper_Local && case \"$CLAUDE_TOOL_INPUT_FILE_PATH\" in *.py) .venv/bin/ruff check \"$CLAUDE_TOOL_INPUT_FILE_PATH\" --fix --quiet 2>/dev/null || true ;; esac"
           }
         ]
       }
