@@ -179,63 +179,47 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** Account */
-        Account: {
+        /** AccountOut */
+        AccountOut: {
             /** Id */
             id: string;
             /** User Id */
             user_id: string;
-            /**
-             * Type
-             * @default jar
-             */
+            /** Type */
             type: string;
             /** Send Id */
-            send_id?: string | null;
-            /**
-             * Currency Code
-             * @default 980
-             */
+            send_id: string | null;
+            /** Currency Code */
             currency_code: number;
-            /**
-             * Balance
-             * @default 0
-             */
+            /** Balance */
             balance: number;
-            /**
-             * Is Active
-             * @default true
-             */
+            /** Is Active */
             is_active: boolean;
             /** Title */
-            title?: string | null;
+            title: string | null;
             /** Goal */
-            goal?: number | null;
-            /**
-             * Is Budget
-             * @default false
-             */
+            goal: number | null;
+            /** Is Budget */
             is_budget: boolean;
-            /**
-             * Invested
-             * @default 0
-             */
+            /** Invested */
             invested: number;
             /**
              * Created At
              * Format: date-time
              */
-            created_at?: string;
+            created_at: string;
             /**
              * Updated At
              * Format: date-time
              */
-            updated_at?: string;
+            updated_at: string;
+            /** Owner Username */
+            owner_username?: string | null;
         };
         /** AccountsResponse */
         AccountsResponse: {
             /** Accounts */
-            accounts: components["schemas"]["Account"][];
+            accounts: components["schemas"]["AccountOut"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {

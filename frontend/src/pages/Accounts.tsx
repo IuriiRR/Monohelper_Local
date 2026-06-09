@@ -21,6 +21,7 @@ export function Accounts() {
                 <Table.Th>Balance</Table.Th>
                 <Table.Th>Budget</Table.Th>
                 <Table.Th>Active</Table.Th>
+                <Table.Th>Owner</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -31,6 +32,15 @@ export function Accounts() {
                   <Table.Td>{formatCurrency(a.balance)}</Table.Td>
                   <Table.Td>{a.is_budget ? <Badge>Budget</Badge> : null}</Table.Td>
                   <Table.Td>{a.is_active ? 'Yes' : 'No'}</Table.Td>
+                  <Table.Td>
+                    {a.owner_username ? (
+                      <Badge variant="light" color="blue" size="sm">
+                        {a.owner_username}
+                      </Badge>
+                    ) : (
+                      a.user_id.slice(0, 8)
+                    )}
+                  </Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>
