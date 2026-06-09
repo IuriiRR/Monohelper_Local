@@ -22,3 +22,7 @@ secrets/*.db
 
 .coverage
 htmlcov/
+
+# Frontend (React SPA) — built/installed artifacts (schema.d.ts is committed)
+frontend/node_modules/
+frontend/dist/

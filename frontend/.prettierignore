@@ -1,0 +1,4 @@
+dist
+node_modules
+# Generated from the backend OpenAPI schema — never hand-edit or format.
+src/api/schema.d.ts

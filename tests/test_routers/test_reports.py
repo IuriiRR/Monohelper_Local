@@ -74,6 +74,13 @@ def test_monthly_with_budget_jar(client: TestClient, session: Session):
     assert jar["total_deposits"] == 502000
     # spent = sum_all - budget = (500000 + 2000 - 380000 - 2000) - 500000 = 120000 - 500000 = -380000
     assert jar["spent"] == -380000
+    # transactions: ordered by time, each {time, balance} for the balance chart
+    assert jar["transactions"] == [
+        {"time": _ts(2026, 5, 2), "balance": 500000},
+        {"time": _ts(2026, 5, 5), "balance": 502000},
+        {"time": _ts(2026, 5, 10), "balance": 122000},
+        {"time": _ts(2026, 5, 20), "balance": 120000},
+    ]
 
 
 def test_monthly_no_transactions(client: TestClient, session: Session):
@@ -88,6 +95,7 @@ def test_monthly_no_transactions(client: TestClient, session: Session):
     assert jar["budget"] == 0
     assert jar["total_deposits"] == 0
     assert jar["spent"] == 0
+    assert jar["transactions"] == []
 
 
 def test_monthly_invalid_month(client: TestClient, session: Session):

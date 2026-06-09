@@ -10,6 +10,7 @@ from admin import setup_admin
 from database import create_db_and_tables, engine
 from logging_config import setup_logging
 from routers import accounts, reports, sync, tasks, transactions, users
+from web import setup_web
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class ForwardedPrefixMiddleware:
                 scope = {**scope, "app_root_path": prefix}
         await self._inner(scope, receive, send)
 
+
 _health: dict = {"last_heartbeat_at": None, "last_error": None}
 
 
@@ -37,6 +39,7 @@ async def lifespan(app: FastAPI):
     setup_logging()
     create_db_and_tables()
     setup_admin(app, engine)
+    setup_web(app)
     yield
 
 
@@ -49,6 +52,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Added after CORS so it is the outermost middleware (runs first, before routing),
+# matching the previous manual wrap. Keeps `app` a FastAPI instance so `main:app`
+# and tests' dependency_overrides work.
+app.add_middleware(ForwardedPrefixMiddleware)
 
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(accounts.router, prefix="/accounts", tags=["accounts"])
@@ -70,6 +77,3 @@ async def healthz():
         "last_heartbeat_at": _health["last_heartbeat_at"],
         "last_error": _health["last_error"],
     }
-
-
-app = ForwardedPrefixMiddleware(app)  # type: ignore[assignment]

@@ -1,5 +1,7 @@
 .PHONY: docker-run install test server worker \
-        lint format format-check typecheck coverage security deadcode pyright quality
+        lint format format-check typecheck coverage security deadcode pyright quality \
+        frontend-install frontend-dev frontend-build frontend-lint frontend-typecheck \
+        frontend-test gen-types quality-all
 
 docker-run:
 	docker compose up
@@ -44,3 +46,31 @@ pyright:
 
 quality: lint format-check typecheck coverage security deadcode
 	@echo "All quality gates passed."
+
+# --- Frontend (React SPA, served at /app) ---
+
+frontend-install:
+	cd frontend && npm ci
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build
+
+frontend-lint:
+	cd frontend && npm run lint
+
+frontend-typecheck:
+	cd frontend && npm run typecheck
+
+frontend-test:
+	cd frontend && npm test
+
+# Regenerate frontend/src/api/schema.d.ts from the running server's OpenAPI schema.
+# Requires the backend running on :8088 (make server). Run after any router/model change.
+gen-types:
+	cd frontend && npm run gen-types
+
+quality-all: quality frontend-lint frontend-typecheck frontend-test
+	@echo "All backend + frontend gates passed."

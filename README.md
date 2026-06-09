@@ -5,8 +5,9 @@ FastAPI monolith server for Monohelper running on a Raspberry Pi. Hosts the SQLi
 ## What It Does
 
 - **FastAPI server** (`cloudapi-local.service`) on port 8088:
-  - `/admin` — SQLAdmin web UI (jars, cards, transactions, monthly report, sync panel)
-  - `/users`, `/accounts`, `/transactions`, `/reports` — REST API
+  - `/app` — React SPA: dashboards + read views (monthly report, sync control, browse)
+  - `/admin` — SQLAdmin web UI for raw-data CRUD (jars, cards, transactions, users)
+  - `/users`, `/accounts`, `/transactions`, `/reports`, `/tasks` — REST API
   - `/sync/accounts`, `/sync/transactions` — trigger Monobank sync
   - `/healthz` — health check
 - **SQLite** — local database at `secrets/cloudapi_local.db`
@@ -45,6 +46,28 @@ make install   # creates .venv and installs deps
 make server    # starts uvicorn on port 8088
 make worker    # in a second terminal: starts the background worker
 ```
+
+## Frontend (React SPA)
+
+The dashboards and read views live in a Vite + React + TypeScript SPA under `frontend/`,
+served by the backend at **`/app`**. sqladmin (`/admin`) remains for raw-data CRUD.
+See `frontend/README.md` for details.
+
+```bash
+make frontend-install   # npm ci
+make server             # backend on :8088 (needed for the dev proxy + gen-types)
+make frontend-dev       # Vite dev server on :5173 with HMR
+# build for production (served by the backend from frontend/dist):
+make frontend-build
+```
+
+Developing over SSH? Forward the dev port: `ssh -L 5173:localhost:5173 <pi>`. No browser
+extensions are needed — TanStack Query Devtools render in-page.
+
+The same bundle works behind the gateway (`/cloudapi/app`) and on direct access (`/app`):
+Vite builds with a placeholder base that `src/web.py` rewrites per request from
+`X-Forwarded-Prefix`. After any router/model change, regenerate the typed client with
+`make gen-types`.
 
 ## Background Worker
 
@@ -201,6 +224,10 @@ git pull
 
 # 2. Sync Python dependencies (fast, only installs what changed)
 uv pip install -e ".[test]" --python .venv/bin/python
+
+# 2b. Rebuild the React SPA (served by the backend at /app).
+#     Vite build is a few seconds on a Pi; npm pulls prebuilt aarch64 binaries.
+cd frontend && npm ci && npm run build && cd ..
 
 # 3. Restart the admin server (port 8088) and the worker
 sudo cp "${APP_DIR}/systemd/cloudapi-local.service" /etc/systemd/system/

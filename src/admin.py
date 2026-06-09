@@ -1,16 +1,12 @@
-import calendar
-from datetime import UTC, datetime
-from pathlib import Path
-
 from fastapi import Request
 from fastapi.responses import RedirectResponse
-from sqladmin import Admin, BaseView, ModelView, action, expose
+from sqladmin import Admin, ModelView, action
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session as SASession
-from sqlmodel import Session as SQLModelSession
 
 from models import Account, Transaction, User
-from services.tasks import enqueue, recent
+
+# The Monthly Report and Sync screens now live in the React SPA (frontend/, served at /app).
+# sqladmin is kept only for raw-data CRUD over the models below.
 
 
 class UserAdmin(ModelView, model=User):
@@ -90,113 +86,10 @@ class TransactionAdmin(ModelView, model=Transaction):
     ]
 
 
-class MonthlyReportView(BaseView):
-    name = "Monthly Report"
-    icon = "fa-solid fa-chart-bar"
-
-    @expose("/monthly-report", methods=["GET"])
-    async def monthly_report(self, request: Request):
-        month = request.query_params.get("month", datetime.now(UTC).strftime("%Y-%m"))
-
-        try:
-            dt = datetime.strptime(month, "%Y-%m")
-        except ValueError:
-            dt = datetime.now(UTC)
-            month = dt.strftime("%Y-%m")
-
-        _, last_day = calendar.monthrange(dt.year, dt.month)
-        month_start = int(datetime(dt.year, dt.month, 1, tzinfo=UTC).timestamp())
-        month_end = int(datetime(dt.year, dt.month, last_day, 23, 59, 59, tzinfo=UTC).timestamp()) + 1
-
-        with SASession(self._admin_ref.engine) as session:
-            jars = session.execute(select(Account).where(Account.is_budget)).scalars().all()
-
-            result = []
-            for jar in jars:
-                txs = (
-                    session.execute(
-                        select(Transaction)
-                        .where(Transaction.account_id == jar.id)
-                        .where(Transaction.time >= month_start)
-                        .where(Transaction.time < month_end)
-                        .order_by(Transaction.time)
-                    )
-                    .scalars()
-                    .all()
-                )
-
-                if txs:
-                    start_balance = txs[0].balance - txs[0].amount
-                else:
-                    start_balance = jar.balance
-
-                budget = max((tx.amount for tx in txs if tx.amount > 0), default=0)
-                total_deposits = sum(tx.amount for tx in txs if tx.amount > 0)
-                spent = sum(tx.amount for tx in txs) - budget
-
-                result.append(
-                    {
-                        "title": jar.title or jar.id,
-                        "start_balance": start_balance,
-                        "current_balance": jar.balance,
-                        "budget": budget,
-                        "total_deposits": total_deposits,
-                        "spent": spent,
-                        "transactions": [{"time": tx.time, "balance": tx.balance} for tx in txs],
-                    }
-                )
-
-        return await self.templates.TemplateResponse(
-            request,
-            "monthly_report.html",
-            {"month": month, "jars": result},
-        )
-
-
-class SyncView(BaseView):
-    name = "Sync"
-    icon = "fa-solid fa-rotate"
-
-    def _render(self, request: Request, queued_task_id=None):
-        engine = self._admin_ref.engine  # type: ignore[assignment]
-        with SQLModelSession(engine) as session:
-            tasks = recent(session, limit=20)
-        return self.templates.TemplateResponse(
-            request,
-            "sync_panel.html",
-            {"queued_task_id": queued_task_id, "recent_tasks": tasks},
-        )
-
-    @expose("/sync-panel", methods=["GET"])
-    async def sync_panel(self, request: Request):
-        return await self._render(request)
-
-    @expose("/sync-panel/accounts", methods=["POST"])
-    async def sync_accounts(self, request: Request):
-        engine = self._admin_ref.engine  # type: ignore[assignment]
-        with SQLModelSession(engine) as session:
-            task = enqueue(session, type="sync_accounts", payload={})
-            task_id = task.id
-        return await self._render(request, queued_task_id=task_id)
-
-    @expose("/sync-panel/transactions", methods=["POST"])
-    async def sync_transactions(self, request: Request):
-        form = await request.form()
-        days = int(str(form.get("days", "30") or "30"))
-        engine = self._admin_ref.engine  # type: ignore[assignment]
-        with SQLModelSession(engine) as session:
-            task = enqueue(session, type="sync_transactions", payload={"days": days})
-            task_id = task.id
-        return await self._render(request, queued_task_id=task_id)
-
-
 def setup_admin(app, engine):
-    templates_dir = Path(__file__).parent / "templates"
-    admin = Admin(app, engine, templates_dir=str(templates_dir))
+    admin = Admin(app, engine)
     admin.add_view(UserAdmin)
     admin.add_view(JarAccountAdmin)
     admin.add_view(CardAccountAdmin)
     admin.add_view(TransactionAdmin)
-    admin.add_base_view(MonthlyReportView)
-    admin.add_base_view(SyncView)
     return admin

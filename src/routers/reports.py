@@ -11,6 +11,11 @@ from models import Account, Transaction
 router = APIRouter()
 
 
+class TransactionPoint(BaseModel):
+    time: int
+    balance: int
+
+
 class JarMonthlyReport(BaseModel):
     id: str
     title: str | None
@@ -19,6 +24,7 @@ class JarMonthlyReport(BaseModel):
     budget: int
     total_deposits: int
     spent: int
+    transactions: list[TransactionPoint]
 
 
 class MonthlyReportResponse(BaseModel):
@@ -78,6 +84,7 @@ def get_monthly_report(
                 budget=budget,
                 total_deposits=total_deposits,
                 spent=spent,
+                transactions=[TransactionPoint(time=tx.time, balance=tx.balance) for tx in txs],
             )
         )
 
