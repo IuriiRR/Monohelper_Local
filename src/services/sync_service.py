@@ -24,6 +24,34 @@ class SyncTransactionsRequest(BaseModel):
     days: int = 30
 
 
+def _upsert_account(
+    session: Session,
+    raw: dict,
+    account_type: str,
+    user_id: str,
+    now: datetime,
+) -> None:
+    fields: dict = dict(
+        user_id=user_id,
+        type=account_type,
+        send_id=raw.get("sendId"),
+        currency_code=int(raw.get("currencyCode", 980)),
+        balance=int(raw.get("balance", 0)),
+        is_active=True,
+        updated_at=now,
+    )
+    if account_type == "jar":
+        fields["title"] = raw.get("title")
+        fields["goal"] = raw.get("goal")
+
+    existing = session.get(Account, raw["id"])
+    if existing:
+        for k, v in fields.items():
+            setattr(existing, k, v)
+    else:
+        session.add(Account(id=raw["id"], **fields))
+
+
 def sync_accounts(session: Session) -> dict:
     users = session.exec(select(User).where(User.active == True, User.mono_token != "")).all()
 
@@ -48,35 +76,11 @@ def sync_accounts(session: Session) -> dict:
         count = 0
 
         for acc in data.get("accounts", []):
-            session.merge(
-                Account(
-                    id=acc["id"],
-                    user_id=user.user_id,
-                    type="card",
-                    send_id=acc.get("sendId"),
-                    currency_code=int(acc.get("currencyCode", 980)),
-                    balance=int(acc.get("balance", 0)),
-                    is_active=True,
-                    updated_at=now,
-                )
-            )
+            _upsert_account(session, acc, "card", user.user_id, now)
             count += 1
 
         for jar in data.get("jars", []):
-            session.merge(
-                Account(
-                    id=jar["id"],
-                    user_id=user.user_id,
-                    type="jar",
-                    send_id=jar.get("sendId"),
-                    currency_code=int(jar.get("currencyCode", 980)),
-                    balance=int(jar.get("balance", 0)),
-                    is_active=True,
-                    title=jar.get("title"),
-                    goal=jar.get("goal"),
-                    updated_at=now,
-                )
-            )
+            _upsert_account(session, jar, "jar", user.user_id, now)
             count += 1
 
         session.commit()
