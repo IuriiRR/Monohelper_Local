@@ -19,4 +19,15 @@ declare global {
 
 export const apiBase = window.__API_BASE__ ?? ''
 export const routerBase = window.__APP_BASE__ ?? ''
-export const apiKey = window.__API_KEY__ ?? import.meta.env.VITE_API_KEY ?? ''
+
+/** Read the API key — localStorage takes priority over server-injected and env values. */
+export function getApiKey(): string {
+  return (
+    localStorage.getItem('__api_key__') ??
+    window.__API_KEY__ ??
+    import.meta.env.VITE_API_KEY ??
+    ''
+  )
+}
+
+export const apiKey = getApiKey()
