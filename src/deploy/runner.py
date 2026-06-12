@@ -33,8 +33,8 @@ from deploy.models import DeployRun, DeployStatus
 logger = logging.getLogger(__name__)
 
 COMMAND_TIMEOUT_SEC = 600  # per-step hard cap (npm ci is the slow one on a Pi)
-HEALTHCHECK_RETRIES = 6
-HEALTHCHECK_INTERVAL_SEC = 1.0
+HEALTHCHECK_RETRIES = 20
+HEALTHCHECK_INTERVAL_SEC = 3.0
 HEALTHCHECK_TIMEOUT_SEC = 5.0
 
 # Only ever one deploy at a time. Held for the lifetime of the executor thread.
