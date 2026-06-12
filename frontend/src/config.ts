@@ -13,8 +13,10 @@ declare global {
   interface Window {
     __API_BASE__?: string
     __APP_BASE__?: string
+    __API_KEY__?: string
   }
 }
 
 export const apiBase = window.__API_BASE__ ?? ''
 export const routerBase = window.__APP_BASE__ ?? ''
+export const apiKey = window.__API_KEY__ ?? import.meta.env.VITE_API_KEY ?? ''

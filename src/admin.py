@@ -1,12 +1,36 @@
+import hmac
+
 from fastapi import Request
 from fastapi.responses import RedirectResponse
 from sqladmin import Admin, ModelView, action
+from sqladmin.authentication import AuthenticationBackend
 from sqlalchemy import func, select
 
+from config import load_settings
 from models import Account, Transaction, User
 
 # The Monthly Report and Sync screens now live in the React SPA (frontend/, served at /app).
 # sqladmin is kept only for raw-data CRUD over the models below.
+
+
+class AdminAuth(AuthenticationBackend):
+    async def login(self, request: Request) -> bool:
+        form = await request.form()
+        password = str(form.get("password", ""))
+        settings = load_settings()
+        if not settings.admin_password:
+            return False
+        if hmac.compare_digest(password, settings.admin_password):
+            request.session.update({"authenticated": "1"})
+            return True
+        return False
+
+    async def logout(self, request: Request) -> bool:
+        request.session.clear()
+        return True
+
+    async def authenticate(self, request: Request) -> bool:
+        return bool(request.session.get("authenticated"))
 
 
 class UserAdmin(ModelView, model=User):
@@ -87,7 +111,12 @@ class TransactionAdmin(ModelView, model=Transaction):
 
 
 def setup_admin(app, engine):
-    admin = Admin(app, engine)
+    settings = load_settings()
+    auth_backend = None
+    if settings.admin_password:
+        secret = settings.internal_api_key or settings.admin_password
+        auth_backend = AdminAuth(secret_key=secret)
+    admin = Admin(app, engine, authentication_backend=auth_backend)
     admin.add_view(UserAdmin)
     admin.add_view(JarAccountAdmin)
     admin.add_view(CardAccountAdmin)

@@ -17,6 +17,8 @@ import database
 from database import get_session
 from main import app
 
+TEST_API_KEY = "test-api-key"
+
 # In-memory SQLite for testing
 sqlite_url = "sqlite://"
 engine = create_engine(sqlite_url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -24,6 +26,7 @@ engine = create_engine(sqlite_url, connect_args={"check_same_thread": False}, po
 
 @pytest.fixture(name="session")
 def session_fixture(monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_KEY", TEST_API_KEY)
     SQLModel.metadata.create_all(engine)
     # Point worker/job code (which opens Session(database.engine)) at the test DB.
     monkeypatch.setattr(database, "engine", engine)
@@ -34,6 +37,17 @@ def session_fixture(monkeypatch):
 
 @pytest.fixture(name="client")
 def client_fixture(session: Session):
+    def get_session_override():
+        return session
+
+    app.dependency_overrides[get_session] = get_session_override
+    client = TestClient(app, headers={"X-API-Key": TEST_API_KEY})
+    yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(name="unauthed_client")
+def unauthed_client_fixture(session: Session):
     def get_session_override():
         return session
 

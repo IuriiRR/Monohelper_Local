@@ -22,6 +22,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from config import load_settings
+
 DIST = Path(__file__).parent.parent / "frontend" / "dist"
 PLACEHOLDER = "/__APP_BASE__/"
 
@@ -36,12 +38,16 @@ def _effective_prefix(request: Request) -> str:
     return prefix.rstrip("/")
 
 
-def _render_index(template: str, request: Request) -> str:
+def _render_index(template: str, request: Request, api_key: str = "") -> str:
     """Rewrite the placeholder base and inject runtime bases into index.html."""
     prefix = _effective_prefix(request)
     app_base = f"{prefix}/app"
     html = template.replace(PLACEHOLDER, f"{app_base}/")
-    inject = f"<script>window.__API_BASE__={json.dumps(prefix)};window.__APP_BASE__={json.dumps(app_base)};</script>"
+    inject = (
+        f"<script>window.__API_BASE__={json.dumps(prefix)};"
+        f"window.__APP_BASE__={json.dumps(app_base)};"
+        f"window.__API_KEY__={json.dumps(api_key)};</script>"
+    )
     return html.replace("</head>", f"{inject}</head>", 1)
 
 
@@ -62,9 +68,10 @@ def setup_web(app: FastAPI) -> None:
         return
 
     index_template = index_file.read_text(encoding="utf-8")
+    api_key = load_settings().internal_api_key
     app.mount("/app/assets", StaticFiles(directory=DIST / "assets"), name="spa-assets")
 
     @app.get("/app", include_in_schema=False)
     @app.get("/app/{full_path:path}", include_in_schema=False)
     async def spa(request: Request) -> HTMLResponse:
-        return HTMLResponse(_render_index(index_template, request))
+        return HTMLResponse(_render_index(index_template, request, api_key))

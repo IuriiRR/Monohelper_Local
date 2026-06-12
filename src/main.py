@@ -2,11 +2,12 @@ import logging
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from admin import setup_admin
+from auth import verify_api_key
 from database import create_db_and_tables, engine
 from logging_config import setup_logging
 from routers import accounts, reports, sync, tasks, transactions, users
@@ -57,12 +58,13 @@ app.add_middleware(
 # and tests' dependency_overrides work.
 app.add_middleware(ForwardedPrefixMiddleware)
 
-app.include_router(users.router, prefix="/users", tags=["users"])
-app.include_router(accounts.router, prefix="/accounts", tags=["accounts"])
-app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
-app.include_router(sync.router, prefix="/sync", tags=["sync"])
-app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
-app.include_router(reports.router, prefix="/reports", tags=["reports"])
+_auth = [Depends(verify_api_key)]
+app.include_router(users.router, prefix="/users", tags=["users"], dependencies=_auth)
+app.include_router(accounts.router, prefix="/accounts", tags=["accounts"], dependencies=_auth)
+app.include_router(transactions.router, prefix="/transactions", tags=["transactions"], dependencies=_auth)
+app.include_router(sync.router, prefix="/sync", tags=["sync"], dependencies=_auth)
+app.include_router(tasks.router, prefix="/tasks", tags=["tasks"], dependencies=_auth)
+app.include_router(reports.router, prefix="/reports", tags=["reports"], dependencies=_auth)
 
 
 @app.get("/")
