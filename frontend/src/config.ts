@@ -13,21 +13,13 @@ declare global {
   interface Window {
     __API_BASE__?: string
     __APP_BASE__?: string
-    __API_KEY__?: string
   }
 }
 
 export const apiBase = window.__API_BASE__ ?? ''
 export const routerBase = window.__APP_BASE__ ?? ''
 
-/** Read the API key — localStorage takes priority over server-injected and env values. */
+/** Read the API key from localStorage only. Returns '' if not set (triggers /setup redirect). */
 export function getApiKey(): string {
-  return (
-    localStorage.getItem('__api_key__') ??
-    window.__API_KEY__ ??
-    import.meta.env.VITE_API_KEY ??
-    ''
-  )
+  return localStorage.getItem('__api_key__') ?? ''
 }
-
-export const apiKey = getApiKey()

@@ -42,7 +42,7 @@ def test_render_index_direct_mode():
     assert "/__APP_BASE__/" not in html
     assert 'window.__API_BASE__=""' in html
     assert 'window.__APP_BASE__="/app"' in html
-    assert 'window.__API_KEY__=""' in html
+    assert "__API_KEY__" not in html
 
 
 def test_render_index_gateway_mode():
@@ -51,11 +51,5 @@ def test_render_index_gateway_mode():
     assert "/cloudapi/app/a.js" in html
     assert 'window.__API_BASE__="/cloudapi"' in html
     assert 'window.__APP_BASE__="/cloudapi/app"' in html
-    # injected before </head>
+    assert "__API_KEY__" not in html
     assert html.index("__API_BASE__") < html.index("</head>")
-
-
-def test_render_index_injects_api_key():
-    html = _render_index(TEMPLATE, _request(), api_key="my-secret-key")
-    assert 'window.__API_KEY__="my-secret-key"' in html
-    assert html.index("__API_KEY__") < html.index("</head>")

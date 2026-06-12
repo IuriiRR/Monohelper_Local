@@ -10,7 +10,6 @@ export function Setup() {
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
-  const hasServerKey = Boolean(window.__API_KEY__)
   const hasLocalKey = Boolean(key)
 
   function handleSave() {
@@ -32,13 +31,6 @@ export function Setup() {
             Enter your <code>INTERNAL_API_KEY</code> to access the app. The key is saved in your
             browser&apos;s local storage and sent as <code>X-API-Key</code> on every request.
           </Text>
-
-          {hasServerKey && !hasLocalKey && (
-            <Text size="xs" c="orange">
-              A server-provided key is active. If you&apos;re seeing this page, that key may be
-              invalid — enter the correct key below to override it.
-            </Text>
-          )}
 
           <TextInput
             label="API Key"
