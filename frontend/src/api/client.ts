@@ -7,6 +7,9 @@
  */
 import createClient from 'openapi-fetch'
 import type { paths } from './schema'
-import { apiBase } from '../config'
+import { apiBase, apiKey } from '../config'
 
-export const api = createClient<paths>({ baseUrl: apiBase })
+export const api = createClient<paths>({
+  baseUrl: apiBase,
+  headers: { 'X-API-Key': apiKey },
+})
