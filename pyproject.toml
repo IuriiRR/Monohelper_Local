@@ -40,6 +40,7 @@ dev = [
 
 [project.scripts]
 monohelper-worker = "worker:main"
+monohelper-deploy = "deploy.__main__:main"
 
 [tool.pytest.ini_options]
 pythonpath = [
@@ -62,7 +63,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/conftest.py" = ["E402"]  # sys.path must come before imports
-"tests/**/*.py" = ["S106"]      # dummy tokens/passwords in fixtures are not secrets
+"tests/**/*.py" = ["S105", "S106"]  # dummy tokens/passwords in fixtures are not secrets
+# Deploy runner shells out with fixed argv lists (no shell, no untrusted input).
+"src/deploy/runner.py" = ["S404", "S603", "S607"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -87,6 +90,7 @@ fail_under = 80
 omit = [
   "src/admin.py",         # SQLAdmin UI — requires live server + DB to test
   "src/logging_config.py", # logging setup — no meaningful unit tests
+  "src/deploy/__main__.py", # uvicorn entrypoint — no meaningful unit tests
 ]
 
 [tool.bandit]

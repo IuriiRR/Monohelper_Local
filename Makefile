@@ -1,4 +1,4 @@
-.PHONY: docker-run install test server worker \
+.PHONY: docker-run install test server worker deploy-server \
         lint format format-check typecheck coverage security deadcode pyright quality \
         frontend-install frontend-dev frontend-build frontend-lint frontend-typecheck \
         frontend-test gen-types quality-all
@@ -17,6 +17,10 @@ server:
 
 worker:
 	PYTHONPATH=src .venv/bin/python -m worker
+
+# CI/CD deploy service (pull, rebuild, restart) + dashboard at /app on port 8089.
+deploy-server:
+	PYTHONPATH=src .venv/bin/uvicorn deploy.app:app --reload --host 127.0.0.1 --port 8089
 
 # --- Code quality ---
 

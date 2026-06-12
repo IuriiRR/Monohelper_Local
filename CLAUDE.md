@@ -19,8 +19,12 @@ It syncs accounts and transactions directly from Monobank into a local SQLite da
   - `logging_config.py` — central stdlib logging (server + worker)
   - `web.py` — serves the React SPA (`frontend/dist`) at `/app` with dual-mode base injection
   - `admin.py` (sqladmin CRUD at `/admin`), `models.py`, `database.py`, `config.py`
+  - `deploy/` — **standalone** CI/CD deploy service (`python -m deploy`, port 8089): pulls,
+    rebuilds, restarts the two units, and serves a status dashboard. Own SQLite (`secrets/deploy.db`),
+    own FastAPI app — kept separate so it stays up while it restarts the main app + worker.
 - `frontend/` — React + TS (Vite) SPA: dashboards + read views, served at `/app` (see `frontend/README.md`)
-- `systemd/` — Raspberry Pi units: `cloudapi-local.service`, `cloudapi-worker.service`
+- `systemd/` — Raspberry Pi units: `cloudapi-local.service`, `cloudapi-worker.service`,
+  `cloudapi-deploy.service` (+ `cloudapi-deploy.sudoers` for the scoped `systemctl restart` grant)
 - `tests/` — pytest unit tests
 - `secrets/` — gitignored: local_server.env, cloudapi_local.db
 
@@ -30,6 +34,7 @@ It syncs accounts and transactions directly from Monobank into a local SQLite da
 make install        # Install deps with uv into .venv (test + dev extras)
 make server         # FastAPI dev server on port 8088
 make worker         # Background task worker (separate process)
+make deploy-server  # CI/CD deploy service + dashboard on port 8089
 make test           # Run tests
 make docker-run     # Run via Docker Compose
 ```
@@ -70,6 +75,7 @@ make quality-all          # backend quality + frontend lint/typecheck/test
 |---------------------|------|-------------------------------------------|
 | `local_server`      | 8088 | `src/main.py`                             |
 | `worker`            | —    | `src/worker.py` (`cloudapi-worker.service`) |
+| `deploy_service`    | 8089 | `src/deploy/` (`cloudapi-deploy.service`) |
 
 ## API Endpoints
 
@@ -92,6 +98,26 @@ make quality-all          # backend quality + frontend lint/typecheck/test
 
 > Sync runs in the **worker** process, not the HTTP request. Endpoints only enqueue;
 > the worker (`make worker` / `cloudapi-worker.service`) consumes the task queue.
+
+## Deploy service (CI/CD)
+
+A **separate** FastAPI app (`src/deploy/`, `make deploy-server`, port 8089) that automates the
+README "update after git pull" ritual. It is its own process/unit so it stays up while it
+restarts the main app + worker, and so a bad deploy never takes the deploy UI down.
+
+- `GET /app` — deploy dashboard (self-contained vanilla HTML, no build step): "Deploy now"
+  button, live per-step status, log tail, history. Dual-mode base injection like the main SPA.
+- `POST /deploy` — trigger a manual deploy (requires `X-Deploy-Token`); 202 `{run_id, status}`.
+- `GET /deploys` / `GET /deploys/{id}` — history / single run (status, per-step results, log).
+- `POST /webhook/github` — optional push-triggered deploy; **disabled unless `GITHUB_WEBHOOK_SECRET`
+  is set** (HMAC-SHA256 verified).
+
+Steps (one deploy at a time, in a background thread): `git pull --ff-only` → `uv pip install` →
+`npm ci && npm run build` → `sudo systemctl restart cloudapi-local cloudapi-worker` → health check.
+The restart uses a **narrow sudoers rule** (`systemd/cloudapi-deploy.sudoers`); the deploy unit
+omits `NoNewPrivileges` so `sudo` can elevate. Env vars: `DEPLOY_TOKEN`, `GITHUB_WEBHOOK_SECRET`,
+`APP_DIR`, `DEPLOY_BRANCH`, `HEALTHCHECK_URL` (see `.env.example`). Gateway exposure needs a
+`/cloudapi-deploy/ → :8089` location in the api_gateway repo (not in this repo).
 
 ## Frontend (React SPA)
 

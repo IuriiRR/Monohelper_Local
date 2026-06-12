@@ -244,6 +244,36 @@ curl -fsI http://127.0.0.1:8088/admin
 
 If you bump Python: `pyenv install -s 3.11.<new>`, edit `.python-version`, then `rm -rf .venv && uv venv .venv && uv pip install -e ".[test]" --python .venv/bin/python`, then restart the target above.
 
+### 9. (Optional) Deploy service — one-click CI/CD on the Pi
+
+The deploy service (`src/deploy/`, port 8089) turns step 8 into a button. It pulls, reinstalls,
+rebuilds the SPA, restarts both units, and health-checks — tracked in a small dashboard.
+
+```bash
+# 1. Grant the scoped restart permission (only these two units, no password):
+sudo install -o root -g root -m 440 \
+  "${APP_DIR}/systemd/cloudapi-deploy.sudoers" /etc/sudoers.d/cloudapi-deploy
+sudo visudo -cf /etc/sudoers.d/cloudapi-deploy        # must report "parsed OK"
+
+# 2. Set a deploy token in /etc/cloudapi/local_server.env:
+#    DEPLOY_TOKEN=<a long random string>
+#    (optional) GITHUB_WEBHOOK_SECRET=<secret>   # enables POST /webhook/github
+
+# 3. Install + start the unit (runs WITHOUT NoNewPrivileges so sudo can elevate):
+sudo cp "${APP_DIR}/systemd/cloudapi-deploy.service" /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now cloudapi-deploy.service
+
+# 4. Verify + use
+curl -fsS http://127.0.0.1:8089/healthz
+# Open the dashboard over an SSH tunnel:  ssh -L 8089:localhost:8089 <pi>
+#   then browse http://localhost:8089/app , enter the token, click "Deploy now".
+```
+
+> Exposing the dashboard through the nginx gateway needs a `/cloudapi-deploy/ → 127.0.0.1:8089/`
+> location block (with `X-Forwarded-Prefix: /cloudapi-deploy` and `Host $http_host`) in the
+> api_gateway repo — the service is already built dual-mode to support it.
+
 ## Verify
 
 ```bash

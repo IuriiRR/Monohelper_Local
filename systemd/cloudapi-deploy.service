@@ -1,0 +1,29 @@
+[Unit]
+Description=Monohelper deploy service (CI/CD: pull, rebuild, restart on port 8089)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User/Group and paths if your deploy user or directory differs.
+User=ironcow
+Group=ironcow
+WorkingDirectory=/home/ironcow/Projects/Monohelper_Local
+EnvironmentFile=/etc/cloudapi/local_server.env
+Environment=PYTHONPATH=/home/ironcow/Projects/Monohelper_Local/src
+ExecStart=/home/ironcow/Projects/Monohelper_Local/.venv/bin/python -m deploy
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+
+# NOTE: NoNewPrivileges is intentionally NOT set here. This service shells out to
+# `sudo systemctl restart ...` (allowed by /etc/sudoers.d/cloudapi-deploy), and
+# NoNewPrivileges=true would block sudo from elevating. The other two units keep it.
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

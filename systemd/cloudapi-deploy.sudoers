@@ -1,0 +1,14 @@
+# Narrow sudoers rule for the Monohelper deploy service.
+#
+# Grants the deploy user permission to restart ONLY the two Monohelper units,
+# without a password — nothing else is wildcarded. Install with:
+#
+#   sudo install -o root -g root -m 440 \
+#     systemd/cloudapi-deploy.sudoers /etc/sudoers.d/cloudapi-deploy
+#   sudo visudo -cf /etc/sudoers.d/cloudapi-deploy   # validate syntax
+#
+# Adjust the username if your deploy user is not `ironcow`. Use the absolute
+# systemctl path that matches your distro (`command -v systemctl`); on Raspberry
+# Pi OS / Debian it is /usr/bin/systemctl.
+
+ironcow ALL=(root) NOPASSWD: /usr/bin/systemctl restart cloudapi-local.service, /usr/bin/systemctl restart cloudapi-worker.service

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Monohelper Deploy</title>
+    <style>
+      :root {
+        --bg: #0f1115; --panel: #1a1d24; --border: #2a2f3a; --text: #e6e8eb;
+        --muted: #9aa3b2; --accent: #3b82f6; --ok: #22c55e; --err: #ef4444;
+        --warn: #f59e0b; --run: #3b82f6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      header {
+        display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+      main { max-width: 900px; margin: 0 auto; padding: 20px; }
+      .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      button {
+        background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+        padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+      }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+      .panel {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 8px; padding: 16px; margin-top: 16px;
+      }
+      .muted { color: var(--muted); }
+      .badge {
+        display: inline-block; padding: 2px 9px; border-radius: 999px;
+        font-size: 12px; font-weight: 600; text-transform: capitalize;
+      }
+      .b-success { background: rgba(34,197,94,.15); color: var(--ok); }
+      .b-error { background: rgba(239,68,68,.15); color: var(--err); }
+      .b-running, .b-pending { background: rgba(59,130,246,.15); color: var(--run); }
+      .b-interrupted { background: rgba(245,158,11,.15); color: var(--warn); }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+      th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+      .steps { list-style: none; padding: 0; margin: 0; }
+      .steps li { display: flex; gap: 10px; align-items: center; padding: 5px 0; }
+      pre {
+        background: #0b0d11; border: 1px solid var(--border); border-radius: 6px;
+        padding: 12px; overflow: auto; max-height: 360px; font-size: 12px;
+        white-space: pre-wrap; word-break: break-word;
+      }
+      a { color: var(--accent); }
+      .err-text { color: var(--err); }
+      code { background: #0b0d11; padding: 1px 5px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>🚀 Monohelper Deploy</h1>
+      <span class="muted" id="conn"></span>
+    </header>
+    <main>
+      <div class="panel">
+        <div class="row">
+          <button id="deployBtn">Deploy now</button>
+          <button id="tokenBtn" class="secondary">Set token</button>
+          <span class="muted">Pulls latest <code id="branch">main</code>, rebuilds, restarts services.</span>
+        </div>
+        <p id="msg" class="muted" style="margin-bottom:0"></p>
+      </div>
+
+      <div class="panel" id="currentPanel" style="display:none">
+        <div class="row" style="justify-content:space-between">
+          <strong>Deploy #<span id="curId"></span></strong>
+          <span id="curStatus"></span>
+        </div>
+        <ul class="steps" id="curSteps"></ul>
+        <p class="err-text" id="curError" style="margin:0"></p>
+        <pre id="curLog"></pre>
+      </div>
+
+      <div class="panel">
+        <strong>Recent deploys</strong>
+        <table style="margin-top:8px">
+          <thead>
+            <tr><th>ID</th><th>Trigger</th><th>Status</th><th>Started</th><th>Finished</th></tr>
+          </thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <script>
+      const apiBase = window.__API_BASE__ ?? ''
+      const POLL_MS = 2000
+      const ACTIVE = new Set(['pending', 'running'])
+      const TOKEN_KEY = 'monohelper_deploy_token'
+
+      const $ = (id) => document.getElementById(id)
+      const fmt = (iso) => (iso ? new Date(iso).toLocaleString() : '—')
+      const getToken = () => localStorage.getItem(TOKEN_KEY) || ''
+
+      function setMsg(text, isError) {
+        const el = $('msg')
+        el.textContent = text || ''
+        el.className = isError ? 'err-text' : 'muted'
+      }
+
+      function promptToken() {
+        const t = window.prompt('Deploy token (X-Deploy-Token):', getToken())
+        if (t !== null) {
+          localStorage.setItem(TOKEN_KEY, t.trim())
+          setMsg('Token saved.', false)
+        }
+      }
+
+      function badge(status) {
+        return `<span class="badge b-${status}">${status}</span>`
+      }
+
+      let pollTimer = null
+      let currentId = null
+
+      async function api(path, opts) {
+        return fetch(`${apiBase}${path}`, opts)
+      }
+
+      async function triggerDeploy() {
+        const token = getToken()
+        if (!token) {
+          promptToken()
+          if (!getToken()) return
+        }
+        $('deployBtn').disabled = true
+        setMsg('Triggering deploy…', false)
+        try {
+          const res = await api('/deploy', {
+            method: 'POST',
+            headers: { 'X-Deploy-Token': getToken() },
+          })
+          const data = await res.json().catch(() => ({}))
+          if (res.status === 202) {
+            setMsg(`Deploy #${data.run_id} queued.`, false)
+            currentId = data.run_id
+            startPolling()
+          } else if (res.status === 401) {
+            setMsg('Invalid or missing deploy token. Click "Set token".', true)
+          } else if (res.status === 409) {
+            setMsg('A deploy is already running.', true)
+            refresh()
+          } else if (res.status === 503) {
+            setMsg('Server has no DEPLOY_TOKEN configured.', true)
+          } else {
+            setMsg(`Unexpected response: ${res.status}`, true)
+          }
+        } catch (e) {
+          setMsg(`Request failed: ${e}`, true)
+        } finally {
+          $('deployBtn').disabled = false
+        }
+      }
+
+      function renderCurrent(run) {
+        if (!run) {
+          $('currentPanel').style.display = 'none'
+          return
+        }
+        $('currentPanel').style.display = 'block'
+        $('curId').textContent = run.id
+        $('curStatus').innerHTML = badge(run.status)
+        $('curSteps').innerHTML = (run.steps || [])
+          .map((s) => `<li>${badge(s.status)} <span>${s.name}</span> <span class="muted">(exit ${s.exit_code})</span></li>`)
+          .join('')
+        $('curError').textContent = run.error || ''
+        $('curLog').textContent = run.log || ''
+      }
+
+      function renderHistory(rows) {
+        $('history').innerHTML = rows
+          .map(
+            (r) =>
+              `<tr><td><a href="#" data-id="${r.id}">#${r.id}</a></td><td>${r.trigger}</td>` +
+              `<td>${badge(r.status)}</td><td>${fmt(r.started_at)}</td><td>${fmt(r.finished_at)}</td></tr>`,
+          )
+          .join('')
+        document.querySelectorAll('#history a[data-id]').forEach((a) =>
+          a.addEventListener('click', (e) => {
+            e.preventDefault()
+            currentId = Number(a.dataset.id)
+            startPolling()
+          }),
+        )
+      }
+
+      async function refresh() {
+        try {
+          const res = await api('/deploys?limit=15')
+          if (!res.ok) throw new Error(res.status)
+          const data = await res.json()
+          const rows = data.deploys || []
+          renderHistory(rows)
+          $('conn').textContent = ''
+          if (currentId == null && rows.length) currentId = rows[0].id
+        } catch (e) {
+          $('conn').textContent = '(offline)'
+        }
+      }
+
+      async function pollCurrent() {
+        if (currentId == null) return
+        try {
+          const res = await api(`/deploys/${currentId}`)
+          if (!res.ok) return
+          const run = await res.json()
+          renderCurrent(run)
+          if (!ACTIVE.has(run.status)) {
+            stopPolling()
+            refresh()
+          }
+        } catch (e) {
+          /* transient: the main app may be mid-restart */
+        }
+      }
+
+      function startPolling() {
+        stopPolling()
+        pollCurrent()
+        refresh()
+        pollTimer = setInterval(() => {
+          pollCurrent()
+        }, POLL_MS)
+      }
+
+      function stopPolling() {
+        if (pollTimer) clearInterval(pollTimer)
+        pollTimer = null
+      }
+
+      $('deployBtn').addEventListener('click', triggerDeploy)
+      $('tokenBtn').addEventListener('click', promptToken)
+
+      // Initial load: show history and resume polling if the latest deploy is active.
+      ;(async () => {
+        await refresh()
+        if (currentId != null) {
+          const res = await api(`/deploys/${currentId}`).catch(() => null)
+          if (res && res.ok) {
+            const run = await res.json()
+            renderCurrent(run)
+            if (ACTIVE.has(run.status)) startPolling()
+          }
+        }
+      })()
+    </script>
+  </body>
+</html>
