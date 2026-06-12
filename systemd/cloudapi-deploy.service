@@ -11,6 +11,7 @@ Group=ironcow
 WorkingDirectory=/home/ironcow/Projects/Monohelper_Local
 EnvironmentFile=/etc/cloudapi/local_server.env
 Environment=PYTHONPATH=/home/ironcow/Projects/Monohelper_Local/src
+Environment=PATH=/home/ironcow/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/home/ironcow/Projects/Monohelper_Local/.venv/bin/python -m deploy
 Restart=always
 RestartSec=5
