@@ -24,7 +24,7 @@ export function Layout() {
       <AppShell.Header>
         <Group h="100%" px="md" gap="sm">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-          <Title order={4}>Monohelper</Title>
+          <Title order={4}>Monohelper page</Title>
         </Group>
       </AppShell.Header>
       <AppShell.Navbar p="md">
