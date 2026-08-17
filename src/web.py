@@ -12,7 +12,7 @@ Asset files are served from ``/app/assets`` by ``StaticFiles``. Any other ``/app
 returns ``index.html`` so React Router can resolve client-side deep links.
 
 NEVER add ``--root-path`` to uvicorn for this; the prefix is per-request (see
-``.claude/rules/gateway-local-support.md``).
+``.agents/rules/gateway-local-support.md``).
 """
 
 import json
@@ -41,10 +41,7 @@ def _render_index(template: str, request: Request) -> str:
     prefix = _effective_prefix(request)
     app_base = f"{prefix}/app"
     html = template.replace(PLACEHOLDER, f"{app_base}/")
-    inject = (
-        f"<script>window.__API_BASE__={json.dumps(prefix)};"
-        f"window.__APP_BASE__={json.dumps(app_base)};</script>"
-    )
+    inject = f"<script>window.__API_BASE__={json.dumps(prefix)};window.__APP_BASE__={json.dumps(app_base)};</script>"
     return html.replace("</head>", f"{inject}</head>", 1)
 
 

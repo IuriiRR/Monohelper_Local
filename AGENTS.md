@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code when working with Monohelper_Local.
+This file provides guidance to Antigravity agents when working with Monohelper_Local.
 
 ## Overview
 
@@ -22,7 +22,7 @@ It syncs accounts and transactions directly from Monobank into a local SQLite da
   - `deploy/` — **standalone** CI/CD deploy service (`python -m deploy`, port 8089): pulls,
     rebuilds, restarts the two units, and serves a status dashboard. Own SQLite (`secrets/deploy.db`),
     own FastAPI app — kept separate so it stays up while it restarts the main app + worker.
-- `frontend/` — React + TS (Vite) SPA: dashboards + read views, served at `/app` (see `frontend/README.md`)
+- `frontend/` — React + TS (Vite) SPA: dashboards + read views, served at `/app` (see `frontend/README.md` and `frontend/AGENTS.md`)
 - `systemd/` — Raspberry Pi units: `cloudapi-local.service`, `cloudapi-worker.service`,
   `cloudapi-deploy.service` (+ `cloudapi-deploy.sudoers` for the scoped `systemctl restart` grant)
 - `tests/` — pytest unit tests
@@ -99,7 +99,7 @@ make quality-all          # backend quality + frontend lint/typecheck/test
 > Sync runs in the **worker** process, not the HTTP request. Endpoints only enqueue;
 > the worker (`make worker` / `cloudapi-worker.service`) consumes the task queue.
 
-## Deploy service (CI/CD)
+## Deploy Service (CI/CD)
 
 A **separate** FastAPI app (`src/deploy/`, `make deploy-server`, port 8089) that automates the
 README "update after git pull" ritual. It is its own process/unit so it stays up while it
@@ -129,7 +129,7 @@ via `src/web.py`; sqladmin (`/admin`) is kept for raw-data CRUD. Architectural b
 Dual-mode: a single build works behind the gateway (`/cloudapi/app`) and direct (`/app`).
 Vite builds with a `/__APP_BASE__/` placeholder that `src/web.py` rewrites per request from
 `X-Forwarded-Prefix`, injecting `window.__API_BASE__`/`window.__APP_BASE__`. Never hardcode
-`/cloudapi`. See `.claude/rules/frontend.md` and `.claude/rules/gateway-local-support.md`.
+`/cloudapi`. See `frontend/AGENTS.md` and `.agents/rules/gateway-local-support.md`.
 
 Types are generated from the OpenAPI schema (`make gen-types` → `frontend/src/api/schema.d.ts`);
 regenerate after any router/model change. Dev: `make frontend-dev` (Vite `:5173`, proxies to

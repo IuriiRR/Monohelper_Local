@@ -29,9 +29,3 @@ Run `make quality` — all gates must pass:
 - `E712` — SQLAlchemy `.where(Model.active == True)` requires this syntax
 - `S101` — assert is allowed in tests
 - `S106` — dummy tokens in test fixtures are not hardcoded secrets
-
-## Skills to use
-
-- `ecc:python-review` — after writing Python code
-- `ecc:fastapi-review` — when modifying routers or services
-- `ecc:security-review` — before committing code touching API keys, HTTP, or auth

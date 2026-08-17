@@ -1,8 +1,9 @@
 """Tests for X-API-Key authentication on all protected endpoints."""
+
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import TEST_API_KEY
+TEST_API_KEY = "test-api-key"
 
 PROTECTED_GET = ["/users/", "/accounts/", "/transactions/", "/tasks/", "/reports/monthly"]
 PROTECTED_POST = ["/sync/accounts", "/sync/transactions"]
@@ -32,9 +33,7 @@ def test_public_endpoints_require_no_auth(unauthed_client: TestClient) -> None:
     assert unauthed_client.get("/healthz").status_code == 200
 
 
-def test_unconfigured_key_returns_503(
-    monkeypatch: pytest.MonkeyPatch, unauthed_client: TestClient
-) -> None:
+def test_unconfigured_key_returns_503(monkeypatch: pytest.MonkeyPatch, unauthed_client: TestClient) -> None:
     monkeypatch.delenv("INTERNAL_API_KEY", raising=False)
     resp = unauthed_client.get("/users/", headers={"X-API-Key": TEST_API_KEY})
     assert resp.status_code == 503

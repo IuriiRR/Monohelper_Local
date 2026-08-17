@@ -29,7 +29,7 @@ Run from `frontend/` (or via Makefile from repo root):
 ## Dual-mode base rule (CRITICAL — never break this)
 
 The same built bundle must work behind the gateway (`/cloudapi/app`) and on direct
-access (`/app`). See [gateway-local-support.md](./gateway-local-support.md).
+access (`/app`). See [.agents/rules/gateway-local-support.md](../.agents/rules/gateway-local-support.md).
 
 - NEVER hardcode `/cloudapi` or `/app` anywhere. Read bases from `src/config.ts`
   (`apiBase` = `window.__API_BASE__`, `routerBase` = `window.__APP_BASE__`).
@@ -56,12 +56,6 @@ SPA consumes MUST declare a `response_model` so the type is not `unknown`/`{}`.
 - No secrets in frontend code. The SPA is unauthenticated (so is the API today); never
   embed tokens or keys.
 - Money is integer minor units (kopecks) — format via `src/lib/format.ts`, never inline.
-
-## Agents
-
-- Use `ecc:typescript-reviewer` after writing/modifying frontend code.
-- Use `ecc:e2e-runner` (Playwright) for critical-flow E2E (dashboard, sync), headless —
-  works over SSH.
 
 ## Dev over SSH (no browser extensions)
 

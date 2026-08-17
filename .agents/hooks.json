@@ -1,0 +1,16 @@
+{
+  "ruff-autofix": {
+    "PostToolUse": [
+      {
+        "matcher": "replace_file_content|write_to_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/hooks/post_edit_ruff.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
